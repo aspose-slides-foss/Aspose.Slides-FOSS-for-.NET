@@ -1,0 +1,83 @@
+using System.Xml.Linq;
+
+namespace Aspose.Slides.Foss.Internal;
+
+/// <summary>
+/// Helpers to register content types and relationships in an OPC package.
+/// </summary>
+internal static class OpcRegistration
+{
+    private static readonly XNamespace CtNs =
+        "http://schemas.openxmlformats.org/package/2006/content-types";
+
+    /// <summary>
+    /// Adds a content type override for the given part name if one does not already exist.
+    /// </summary>
+    internal static void AddContentTypeOverride(OpcPackage package, string partName, string contentType)
+    {
+        var ctData = package.GetPart("[Content_Types].xml");
+        XDocument doc;
+        if (ctData is not null)
+        {
+            using var ms = new MemoryStream(ctData);
+            doc = XDocument.Load(ms);
+        }
+        else
+        {
+            doc = new XDocument(new XElement(CtNs + "Types"));
+        }
+
+        var root = doc.Root!;
+        var existing = root.Elements(CtNs + "Override")
+            .FirstOrDefault(e => string.Equals(
+                e.Attribute("PartName")?.Value?.TrimStart('/'),
+                partName.TrimStart('/'),
+                StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            root.Add(new XElement(CtNs + "Override",
+                new XAttribute("PartName", "/" + partName.TrimStart('/')),
+                new XAttribute("ContentType", contentType)));
+        }
+        else if (existing.Attribute("ContentType")?.Value != contentType)
+        {
+            existing.SetAttributeValue("ContentType", contentType);
+        }
+
+        using var outMs = new MemoryStream();
+        doc.Save(outMs);
+        package.SetPart("[Content_Types].xml", outMs.ToArray());
+    }
+
+    /// <summary>
+    /// Ensures a relationship of the given type exists from <paramref name="fromPartName"/>
+    /// to <paramref name="target"/>. Does nothing if the relationship already exists.
+    /// </summary>
+    internal static void EnsureRelationship(OpcPackage package, string fromPartName,
+        string relType, string target)
+    {
+        var relsPath = GetRelsPartName(fromPartName);
+        var rels = new RelsManager();
+        var data = package.GetPart(relsPath);
+        if (data is not null)
+            rels.Load(data);
+
+        if (rels.FindByType(relType).Any())
+            return;
+
+        rels.Add(relType, target);
+        package.SetPart(relsPath, rels.ToBytes());
+    }
+
+    private static string GetRelsPartName(string partName)
+    {
+        if (partName.Contains('/'))
+        {
+            var dir = partName[..partName.LastIndexOf('/')];
+            var file = partName[(partName.LastIndexOf('/') + 1)..];
+            return $"{dir}/_rels/{file}.rels";
+        }
+        return $"_rels/{partName}.rels";
+    }
+}
