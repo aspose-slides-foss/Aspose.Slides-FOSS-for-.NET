@@ -214,6 +214,9 @@ Not yet implemented:
 - VBA macros, digital signatures
 - Hyperlinks and action settings
 
+`Save` writes `SaveFormat.Pptx`, `SaveFormat.Ppsx` and `SaveFormat.Potx`; every other
+value of the enum raises `NotSupportedException`.
+
 ## Links
 
 - [GitHub](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET)

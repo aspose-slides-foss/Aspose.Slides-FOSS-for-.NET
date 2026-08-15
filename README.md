@@ -169,6 +169,11 @@ The following areas are not yet implemented:
 - VBA macros, digital signatures
 - Hyperlinks and action settings
 
+`Save` writes `SaveFormat.Pptx`, `SaveFormat.Ppsx` and `SaveFormat.Potx`. Every other
+value of the enum, including the macro-enabled `Pptm`, `Ppsm` and `Potm`, raises
+`NotSupportedException` rather than writing a presentation package under a name that
+claims to be something else.
+
 Unknown XML parts encountered during load are preserved verbatim on save —
 opening and re-saving a file will never strip content this library does not yet understand.
 
