@@ -16,6 +16,7 @@ public sealed class Presentation : IPresentation, IDisposable
 
     private OpcPackage? _opcPackage;
     private PresentationPart? _presentationPart;
+    private bool _disposed;
     private SourceFormat _sourceFormat = SourceFormat.Pptx;
     private DateTime _currentDateTime = DateTime.Now;
     private int _firstSlideNumber = 1;
@@ -108,6 +109,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_slides is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -123,6 +125,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_notesSize is null)
             {
                 _notesSize = new NotesSize();
@@ -137,6 +140,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_layoutSlidesCollection is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -153,6 +157,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_mastersCollection is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -164,13 +169,21 @@ public sealed class Presentation : IPresentation, IDisposable
     }
 
     /// <inheritdoc />
-    public override ISectionCollection Sections => _sections ??= new SectionCollection();
+    public override ISectionCollection Sections
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _sections ??= new SectionCollection();
+        }
+    }
 
     /// <inheritdoc />
     public override ICommentAuthorCollection CommentAuthors
     {
         get
         {
+            ThrowIfDisposed();
             if (_commentAuthors is null)
             {
                 _commentAuthorsPart = LoadCommentAuthorsPart(_opcPackage!);
@@ -186,6 +199,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_documentProperties is null)
             {
                 _documentProperties = new DocumentProperties();
@@ -200,6 +214,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_imagesCollection is null)
             {
                 _imagesCollection = new ImageCollection();
@@ -215,9 +230,14 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override int FirstSlideNumber
     {
-        get => _firstSlideNumber;
+        get
+        {
+            ThrowIfDisposed();
+            return _firstSlideNumber;
+        }
         set
         {
+            ThrowIfDisposed();
             _firstSlideNumber = value;
             _presentationPart?.SetFirstSlideNumber(value);
         }
@@ -261,17 +281,17 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, SaveFormat format)
     {
-        // Refuse before touching the target: File.Create truncates, and a save that cannot succeed
-        // must not destroy whatever the caller already had at that path.
-        SaveFormatSupport.MainPartContentTypeFor(format);
-
-        using var stream = File.Create(fname);
-        Save(stream, format);
+        WriteToFile(fname, stream => Save(stream, format));
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, SaveFormat format)
     {
+        ThrowIfDisposed();
+
+        // Refuse a format that cannot be written before doing any work for it.
+        SaveFormatSupport.MainPartContentTypeFor(format);
+
         FlushBeforeSave();
 
         if (_opcPackage is null)
@@ -301,10 +321,7 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, int[] slides, SaveFormat format)
     {
-        SaveFormatSupport.MainPartContentTypeFor(format);
-
-        using var stream = File.Create(fname);
-        Save(stream, slides, format);
+        WriteToFile(fname, stream => Save(stream, slides, format));
     }
 
     /// <inheritdoc />
@@ -316,6 +333,8 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(Stream stream, int[] slides, SaveFormat format)
     {
+        ThrowIfDisposed();
+        SaveFormatSupport.MainPartContentTypeFor(format);
         ArgumentNullException.ThrowIfNull(slides);
 
         FlushBeforeSave();
@@ -342,6 +361,26 @@ public sealed class Presentation : IPresentation, IDisposable
     public override void Save(ISaveOptions options)
     {
         throw new InvalidOperationException("A file path or stream is required. Use Save(string, SaveFormat) or Save(Stream, SaveFormat) instead.");
+    }
+
+    /// <summary>
+    /// Serializes to a buffer first and only then replaces the file at <paramref name="fname"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>File.Create</c> truncates whatever is already at the path, and it did so before this class
+    /// knew whether it had anything to write. Any failure after that point - a format that cannot be
+    /// written, a disposed presentation, a slide index out of range - left the caller with a 0-byte
+    /// file where their document had been, and PowerPoint opens a 0-byte file as an empty deck
+    /// rather than reporting damage. A save that cannot succeed must leave the target alone.
+    /// </remarks>
+    private static void WriteToFile(string fname, Action<Stream> write)
+    {
+        using var buffer = new MemoryStream();
+        write(buffer);
+
+        using var file = File.Create(fname);
+        buffer.Position = 0;
+        buffer.CopyTo(file);
     }
 
     /// <summary>
@@ -405,6 +444,7 @@ public sealed class Presentation : IPresentation, IDisposable
     /// </summary>
     public void Dispose()
     {
+        _disposed = true;
         _opcPackage = null;
         _presentationPart = null;
         _slides = null;
@@ -419,6 +459,11 @@ public sealed class Presentation : IPresentation, IDisposable
         _masterSlidesMap = null;
         _layoutSlidesMap = null;
     }
+
+    /// <summary>
+    /// Raises <see cref="ObjectDisposedException"/> once <see cref="Dispose"/> has run.
+    /// </summary>
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
     // ── Private initialization ────────────────────────────────
 
