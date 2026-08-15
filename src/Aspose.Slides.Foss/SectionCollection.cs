@@ -49,6 +49,16 @@ public sealed class SectionCollection : ISectionCollection
     {
         ArgumentNullException.ThrowIfNull(startedFromSlide);
 
+        // A section is written as a range of the slide list of this presentation. A slide from
+        // another one is not in that list, so the section would be written empty and the caller
+        // would be told nothing.
+        if (_presentation is not null && !SlideList().Contains(startedFromSlide))
+        {
+            throw new ArgumentException(
+                "The slide a section starts from must be a slide of this presentation.",
+                nameof(startedFromSlide));
+        }
+
         var section = new Section(this)
         {
             Name = name,
