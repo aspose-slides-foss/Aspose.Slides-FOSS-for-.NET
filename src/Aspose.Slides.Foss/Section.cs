@@ -3,6 +3,13 @@ namespace Aspose.Slides.Foss;
 /// <summary>
 /// Represents a section of slides in a presentation.
 /// </summary>
+/// <remarks>
+/// Obtained from <see cref="ISectionCollection.AddSection"/> or
+/// <see cref="ISectionCollection.AppendEmptySection"/>, which bind it to the collection that owns
+/// it. There is deliberately no public constructor: a section that belongs to no collection lists no
+/// slides and is never written to the file, so <c>new Section { Name = "…" }</c> could only produce
+/// something that looked like a section and did nothing.
+/// </remarks>
 public sealed class Section : ISection
 {
     private readonly SectionCollection _owner;

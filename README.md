@@ -174,6 +174,17 @@ value of the enum, including the macro-enabled `Pptm`, `Ppsm` and `Potm`, raises
 `NotSupportedException` rather than writing a presentation package under a name that
 claims to be something else.
 
+Give the file the extension that matches the format you ask for. `Save("deck.pptx",
+SaveFormat.Potx)` writes a correct template package under a presentation name, and
+PowerPoint refuses to open it — *"its file extension has changed"* — because the name
+and the content type disagree. Use `.pptx` for `Pptx`, `.ppsx` for `Ppsx` and `.potx`
+for `Potx`.
+
+A `Section` is created through `Sections.AddSection` or `Sections.AppendEmptySection`,
+which bind it to the presentation whose slides it divides. It has no public constructor:
+a section built with `new Section()` belonged to no presentation, listed no slides and
+was never written to the file.
+
 Unknown XML parts encountered during load are preserved verbatim on save —
 opening and re-saving a file will never strip content this library does not yet understand.
 
