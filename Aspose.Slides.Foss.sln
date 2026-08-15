@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspose.Slides.Foss.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspose.Slides.Foss.IntegrationTests", "tests\Aspose.Slides.Foss.IntegrationTests\Aspose.Slides.Foss.IntegrationTests.csproj", "{04E639A3-1F7A-4DD2-8B54-EA2ACE945C9E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aspose.Slides.Foss.ConformanceTests", "tests\Aspose.Slides.Foss.ConformanceTests\Aspose.Slides.Foss.ConformanceTests.csproj", "{56E70DC6-C4A1-4B69-A572-70115AD0B22B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,6 +61,18 @@ Global
 		{04E639A3-1F7A-4DD2-8B54-EA2ACE945C9E}.Release|x64.Build.0 = Release|Any CPU
 		{04E639A3-1F7A-4DD2-8B54-EA2ACE945C9E}.Release|x86.ActiveCfg = Release|Any CPU
 		{04E639A3-1F7A-4DD2-8B54-EA2ACE945C9E}.Release|x86.Build.0 = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|x64.Build.0 = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Debug|x86.Build.0 = Debug|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|x64.ActiveCfg = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|x64.Build.0 = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|x86.ActiveCfg = Release|Any CPU
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,5 +81,6 @@ Global
 		{C7C4AFB5-4DBA-4EFA-AE63-DF37F31FC138} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{787FA144-9022-4C4E-AC19-67CD6891207B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{04E639A3-1F7A-4DD2-8B54-EA2ACE945C9E} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{56E70DC6-C4A1-4B69-A572-70115AD0B22B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

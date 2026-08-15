@@ -32,3 +32,11 @@ jobs:
 
       - name: Run integration tests
         run: dotnet test tests/Aspose.Slides.Foss.IntegrationTests --no-build --configuration Release --verbosity normal
+
+      # Conformance tests assert on the produced .pptx package — its XML, its relationships, its
+      # content types and its schema validity — rather than on values read back through the library.
+      # They currently report known defects in the writers, so this step reports without failing the
+      # build. Make it blocking (drop continue-on-error) as soon as the suite is green.
+      - name: Run conformance tests
+        continue-on-error: true
+        run: dotnet test tests/Aspose.Slides.Foss.ConformanceTests --no-build --configuration Release --verbosity normal
