@@ -27,7 +27,7 @@ into `Aspose.Slides.Foss` to inspect its own output is not a conformance test.
 
 ## What the harness checks
 
-`Harness/` holds four pieces, all of them ordinary helpers you call from a `[Fact]`:
+`Harness/` holds five pieces, all of them ordinary helpers you call from a `[Fact]`:
 
 | Type | What it gives you |
 |---|---|
@@ -35,6 +35,7 @@ into `Aspose.Slides.Foss` to inspect its own output is not a conformance test.
 | `PackageAssert` | The rules a consumer applies: every `r:id`/`r:embed`/`r:link` resolves in that part's `.rels`; every part resolves the content type ECMA-376 gives it; no `Override` names a missing part; no relationship targets a missing part; an XPath-addressed element exists with the attributes you name; children appear in schema-required order. |
 | `SchemaValidation` | Runs `OpenXmlValidator(FileFormatVersions.Office2019)` over the package and asserts zero errors. A package a strict reader refuses to open at all is reported as one error carrying the reason. |
 | `TestWorkspace` | A temp directory for produced files, deleted with the test class, plus a 1×1 PNG for image cases. |
+| `TestFixtures` | The input decks to open: a minimal one, and a 46-part deck PowerPoint wrote. The second one matters — it carries parts this library never writes (`presProps`, `viewProps`, `tableStyles`, a thumbnail, a second theme, unused layouts), so it is the only way to notice that a save dropped one. |
 
 The two layers catch different things and neither subsumes the other. The validator finds invented
 names, missing required attributes and wrong child order — it knows the schema. It does *not* check
@@ -89,5 +90,6 @@ so that a repair to one writer cannot silently break a neighbouring one.
 dotnet test tests/Aspose.Slides.Foss.ConformanceTests
 ```
 
-Some of these tests fail today. That is what they are for: each one names a defect in a writer, and a
-failing conformance test is a defect report with the evidence attached.
+Every test here passes, and the suite is a required step of the build. A failure is therefore a
+defect report with the evidence attached: each test names a user-visible failure in a writer, and the
+message says which part of which package is wrong. Fix the writer — never the assertion.
