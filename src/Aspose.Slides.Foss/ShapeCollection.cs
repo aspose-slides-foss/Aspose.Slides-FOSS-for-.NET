@@ -658,7 +658,7 @@ public sealed class ShapeCollection : IShapeCollection
             new XElement(ANs + "tblPr",
                 new XAttribute("firstRow", "1"),
                 new XAttribute("bandRow", "1"),
-                new XElement(ANs + "tblStyleId", "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}")),
+                new XElement(ANs + Table.TableStyleIdElement, "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}")),
             new XElement(ANs + "tblGrid"));
 
         var tblGrid = tbl.Element(ANs + "tblGrid")!;

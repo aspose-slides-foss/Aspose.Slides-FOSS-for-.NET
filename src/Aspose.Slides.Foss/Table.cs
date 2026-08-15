@@ -10,6 +10,19 @@ public sealed class Table : GraphicalObject, ITable
 {
     private static readonly XNamespace ANs = "http://schemas.openxmlformats.org/drawingml/2006/main";
 
+    /// <summary>
+    /// The element CT_TableProperties declares for a table style reference (ECMA-376 Part 1,
+    /// §21.1.3.2 <c>tableStyleId</c>).
+    /// </summary>
+    internal const string TableStyleIdElement = "tableStyleId";
+
+    /// <summary>
+    /// The misspelled name earlier versions of this library wrote. Nothing in the schema declares
+    /// it, so PowerPoint discarded it silently and every table rendered with the default style.
+    /// It is still read, so a file written by one of those versions keeps its style.
+    /// </summary>
+    internal const string LegacyTableStyleIdElement = "tblStyleId";
+
     private XElement? _tbl;
     private XElement? _tblPr;
     private XElement? _tblGrid;
@@ -100,7 +113,7 @@ public sealed class Table : GraphicalObject, ITable
                 if (guid is not null)
                 {
                     styleEl?.Remove();
-                    var newEl = new XElement(ANs + "tblStyleId") { Value = guid };
+                    var newEl = new XElement(ANs + TableStyleIdElement) { Value = guid };
                     tblPr.Add(newEl);
                 }
             }
@@ -276,7 +289,8 @@ public sealed class Table : GraphicalObject, ITable
 
     private static XElement? FindStyleElement(XElement tblPr)
     {
-        return tblPr.Element(ANs + "tblStyleId")
+        return tblPr.Element(ANs + TableStyleIdElement)
+            ?? tblPr.Element(ANs + LegacyTableStyleIdElement)
             ?? tblPr.Element(ANs + "tblStyle");
     }
 
@@ -284,7 +298,7 @@ public sealed class Table : GraphicalObject, ITable
     {
         if (styleEl is null)
             return string.Empty;
-        // <a:tblStyleId>GUID</a:tblStyleId>
+        // <a:tableStyleId>GUID</a:tableStyleId>
         if (!string.IsNullOrWhiteSpace(styleEl.Value))
             return styleEl.Value.Trim();
         // Legacy: <a:tblStyle val="GUID"/>

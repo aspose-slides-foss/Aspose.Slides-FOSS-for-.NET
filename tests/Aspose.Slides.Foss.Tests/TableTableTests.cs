@@ -277,7 +277,7 @@ public sealed class TableTableTests
     [Fact]
     public void StylePreset_DefaultIsNone()
     {
-        // tblPr has no tblStyleId child
+        // tblPr has no tableStyleId child
         var tbl = new XElement(ANs + "tbl",
             new XElement(ANs + "tblPr"),
             new XElement(ANs + "tblGrid"));
