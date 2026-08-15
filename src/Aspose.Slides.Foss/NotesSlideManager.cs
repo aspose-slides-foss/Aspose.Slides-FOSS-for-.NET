@@ -53,8 +53,11 @@ public sealed class NotesSlideManager : INotesSlideManager
 
         var slidePartName = _slidePart.PartName;
 
-        // Create the notes slide XML part in the OPC package
-        var notesPart = NotesSlidePart.CreateEmpty(_package, slidePartName);
+        // Create the notes slide XML part in the OPC package. The presentation part comes along
+        // because a notes slide needs a notes master, and a notes master has to be registered in
+        // ppt/presentation.xml to be one.
+        var presentationPart = (_parentSlide?.Presentation as Presentation)?.PresentationPartInternal;
+        var notesPart = NotesSlidePart.CreateEmpty(_package, slidePartName, presentationPart);
 
         // Add relationship from slide → notes slide
         var relativeTarget = NotesSlidePart.ComputeRelativeTarget(slidePartName, notesPart.PartName);
