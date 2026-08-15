@@ -153,6 +153,14 @@ internal static class PackageSlides
     /// <summary>
     /// The notes slide and comments parts a slide reaches through its own relationships.
     /// </summary>
+    /// <remarks>
+    /// Media is deliberately not collected. Removing the last slide that used an image leaves
+    /// <c>ppt/media/imageN.png</c> in the package: the file is larger than it needs to be, but it is
+    /// valid, nothing dangles, and PowerPoint keeps orphaned media too. Collecting it would mean
+    /// proving no other part — a layout, a master, a notes slide, an unknown part this library
+    /// preserves verbatim — still references it, and getting that wrong deletes a picture the user
+    /// can still see.
+    /// </remarks>
     private static List<string> DependentParts(OpcPackage package, string slidePartName)
     {
         var result = new List<string>();
