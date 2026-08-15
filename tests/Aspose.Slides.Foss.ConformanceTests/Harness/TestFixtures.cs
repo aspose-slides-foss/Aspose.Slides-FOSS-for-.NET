@@ -16,6 +16,13 @@ internal static class TestFixtures
     /// </summary>
     internal static string PowerPointDeck => PathTo("PowerPointDeck.pptx");
 
+    /// <summary>
+    /// A one-table deck whose <c>a:tblPr</c> already carries an <c>a:extLst</c>, as a table authored
+    /// by an application that stores extensions on it does. Nothing this library writes produces
+    /// one, so it has to be opened rather than built.
+    /// </summary>
+    internal static string TableWithExtension => PathTo("TableWithExtension.pptx");
+
     private static string PathTo(string fileName)
     {
         var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_data", fileName);

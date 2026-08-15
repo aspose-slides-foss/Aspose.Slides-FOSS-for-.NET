@@ -114,7 +114,14 @@ public sealed class Table : GraphicalObject, ITable
                 {
                     styleEl?.Remove();
                     var newEl = new XElement(ANs + TableStyleIdElement) { Value = guid };
-                    tblPr.Add(newEl);
+
+                    // CT_TableProperties is a sequence ending in a:extLst, so the style reference
+                    // goes before an extension list the table already carries rather than after it.
+                    var extLst = tblPr.Element(ANs + "extLst");
+                    if (extLst is not null)
+                        extLst.AddBeforeSelf(newEl);
+                    else
+                        tblPr.Add(newEl);
                 }
             }
 
