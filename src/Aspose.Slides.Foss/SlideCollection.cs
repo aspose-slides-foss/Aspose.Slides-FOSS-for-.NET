@@ -156,15 +156,26 @@ public sealed class SlideCollection : ISlideCollection
     /// <inheritdoc />
     public void Remove(ISlide value)
     {
-        Slides.Remove(value);
-        UpdateSlideNumbers();
-        PersistSlideList();
+        var index = Slides.IndexOf(value);
+        if (index < 0)
+            return;
+
+        RemoveAt(index);
     }
 
     /// <inheritdoc />
     public void RemoveAt(int index)
     {
+        var slide = Slides[index];
         Slides.RemoveAt(index);
+
+        // Dropping the slide from the in-memory list only rewrites <p:sldIdLst>. Everything else
+        // that makes the slide part of the package - the part, its relationships, the presentation
+        // relationship and the content-type Override - has to go with it, or the file keeps an
+        // orphan part nothing can reach and a relationship nothing names.
+        if (slide is Slide removed && _package is not null && _presentationPart is not null)
+            PackageSlides.RemoveSlide(_package, _presentationPart, removed.PartName);
+
         UpdateSlideNumbers();
         PersistSlideList();
     }
