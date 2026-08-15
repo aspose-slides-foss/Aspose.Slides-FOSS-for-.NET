@@ -272,11 +272,7 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(Stream stream, SaveFormat format)
     {
-        _presentationPart?.Flush();
-        _documentProperties?.Save();
-        FlushComments();
-        FlushNotesSlides();
-        FlushSlides();
+        FlushBeforeSave();
 
         if (_opcPackage is null)
         {
@@ -305,31 +301,101 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, int[] slides, SaveFormat format)
     {
-        Save(fname, format);
+        SaveFormatSupport.MainPartContentTypeFor(format);
+
+        using var stream = File.Create(fname);
+        Save(stream, slides, format);
     }
 
     /// <inheritdoc />
     public override void Save(string fname, int[] slides, SaveFormat format, ISaveOptions options)
     {
-        Save(fname, format);
+        Save(fname, slides, format);
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, int[] slides, SaveFormat format)
     {
-        Save(stream, format);
+        ArgumentNullException.ThrowIfNull(slides);
+
+        FlushBeforeSave();
+
+        if (_opcPackage is null)
+        {
+            SaveFormatSupport.MainPartContentTypeFor(format);
+            return;
+        }
+
+        var subset = BuildSubsetPackage(slides);
+
+        SaveFormatSupport.ApplyTo(subset, format);
+        subset.SaveToStream(stream);
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, int[] slides, SaveFormat format, ISaveOptions options)
     {
-        Save(stream, format);
+        Save(stream, slides, format);
     }
 
     /// <inheritdoc />
     public override void Save(ISaveOptions options)
     {
         throw new InvalidOperationException("A file path or stream is required. Use Save(string, SaveFormat) or Save(Stream, SaveFormat) instead.");
+    }
+
+    /// <summary>
+    /// Writes everything held in memory back into the package, so that what is about to be
+    /// serialized is what the caller built.
+    /// </summary>
+    private void FlushBeforeSave()
+    {
+        _presentationPart?.Flush();
+        _documentProperties?.Save();
+        FlushComments();
+        FlushNotesSlides();
+        FlushSlides();
+    }
+
+    /// <summary>
+    /// Builds a copy of the package carrying only the requested slides.
+    /// </summary>
+    /// <param name="slides">Zero-based indices of the slides to keep, in any order.</param>
+    /// <returns>A package independent of this presentation's own.</returns>
+    /// <remarks>
+    /// The slides that are kept stay in document order, and their parts keep the names they already
+    /// had: <c>Save(path, [1], …)</c> writes a one-slide deck whose slide is
+    /// <c>ppt/slides/slide2.xml</c>. Part names carry no meaning to a reader — the
+    /// <c>&lt;p:sldIdLst&gt;</c> order does — and renaming them would invalidate every relationship
+    /// that already points at them.
+    /// </remarks>
+    private OpcPackage BuildSubsetPackage(int[] slides)
+    {
+        var subset = _opcPackage!.Clone();
+        var subsetPart = PresentationPart.CreateFromPackage(subset);
+
+        var slideParts = PackageSlides.ListSlideParts(subsetPart);
+
+        var keep = new HashSet<int>();
+        foreach (var index in slides)
+        {
+            if (index < 0 || index >= slideParts.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slides),
+                    $"Slide index {index} is outside the presentation, which has " +
+                    $"{slideParts.Count} slide(s).");
+            }
+            keep.Add(index);
+        }
+
+        for (int i = 0; i < slideParts.Count; i++)
+        {
+            if (!keep.Contains(i))
+                PackageSlides.RemoveSlide(subset, subsetPart, slideParts[i]);
+        }
+
+        subsetPart.Flush();
+        return subset;
     }
 
     // ── IDisposable ───────────────────────────────────────────

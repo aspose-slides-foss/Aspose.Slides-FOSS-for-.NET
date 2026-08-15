@@ -47,6 +47,23 @@ internal sealed class OpcPackage
     }
 
     /// <summary>
+    /// Creates an independent copy of this package.
+    /// </summary>
+    /// <remarks>
+    /// Part contents are immutable byte arrays that are replaced rather than edited in place, so the
+    /// copy shares them safely. This exists so a save that writes something other than the whole
+    /// presentation — a subset of slides — can build it without changing the presentation the caller
+    /// still holds.
+    /// </remarks>
+    internal OpcPackage Clone()
+    {
+        var copy = new OpcPackage();
+        foreach (var (partName, data) in _parts)
+            copy._parts[partName] = data;
+        return copy;
+    }
+
+    /// <summary>
     /// Saves the OPC package to a stream as a ZIP archive.
     /// </summary>
     internal void SaveToStream(Stream stream)

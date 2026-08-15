@@ -35,6 +35,11 @@ internal sealed class RelsManager
     }
 
     /// <summary>
+    /// Gets every relationship this part declares.
+    /// </summary>
+    internal IReadOnlyList<Relationship> All => _relationships;
+
+    /// <summary>
     /// Finds relationships matching the given type.
     /// </summary>
     internal IEnumerable<Relationship> FindByType(string relationshipType)
