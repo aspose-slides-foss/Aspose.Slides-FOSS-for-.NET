@@ -174,7 +174,12 @@ public sealed class Presentation : IPresentation, IDisposable
         get
         {
             ThrowIfDisposed();
-            return _sections ??= new SectionCollection();
+            if (_sections is null)
+            {
+                _sections = new SectionCollection();
+                _sections.InitInternal(this, _presentationPart!);
+            }
+            return _sections;
         }
     }
 
@@ -389,6 +394,8 @@ public sealed class Presentation : IPresentation, IDisposable
     /// </summary>
     private void FlushBeforeSave()
     {
+        // Sections are written into presentation.xml, so they go in before it is serialized.
+        _sections?.Flush();
         _presentationPart?.Flush();
         _documentProperties?.Save();
         FlushComments();

@@ -191,6 +191,38 @@ public sealed class SlideCollection : ISlideCollection
     // ── Internal methods ─────────────────────────────────────────
 
     /// <summary>
+    /// Replaces the slide order with <paramref name="order"/> and rewrites
+    /// <c>&lt;p:sldIdLst&gt;</c> to match.
+    /// </summary>
+    /// <param name="order">
+    /// The slides in their new order. Slides of this presentation the list does not mention follow
+    /// it, keeping their relative order, so a partial order can never drop a slide.
+    /// </param>
+    internal void ReorderInternal(IEnumerable<ISlide> order)
+    {
+        var current = Slides;
+        var reordered = new List<ISlide>();
+
+        foreach (var slide in order)
+        {
+            if (current.Contains(slide) && !reordered.Contains(slide))
+                reordered.Add(slide);
+        }
+
+        foreach (var slide in current)
+        {
+            if (!reordered.Contains(slide))
+                reordered.Add(slide);
+        }
+
+        current.Clear();
+        current.AddRange(reordered);
+
+        UpdateSlideNumbers();
+        PersistSlideList();
+    }
+
+    /// <summary>
     /// Finds the next available slide file number by scanning existing part names.
     /// </summary>
     internal int GetNextSlideFileNumber()
