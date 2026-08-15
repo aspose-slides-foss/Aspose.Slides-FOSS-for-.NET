@@ -167,8 +167,13 @@ public sealed class GlowTests
         color.B.Should().Be(0);
     }
 
+    /// <summary>
+    /// A glow of radius zero is a glow nobody can see, so enabling one must not leave the radius
+    /// unset. <c>rad</c> is optional in CT_GlowEffect and defaults to 0, which is why the enabler
+    /// writes an explicit value.
+    /// </summary>
     [Fact]
-    public void GlowEffect_DefaultRadius_IsZeroAfterEnable()
+    public void GlowEffect_AfterEnable_HasAVisibleDefaultRadius()
     {
         var (_, shapes) = CreateSlideWithShapes();
         var shape = shapes.AddAutoShape(ShapeType.Rectangle, 100, 100, 200, 100);
@@ -177,6 +182,6 @@ public sealed class GlowTests
 
         var glow = shape.EffectFormat.GlowEffect;
         glow.Should().NotBeNull();
-        glow!.Radius.Should().Be(0f);
+        glow!.Radius.Should().Be(5f);
     }
 }

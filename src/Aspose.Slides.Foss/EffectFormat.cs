@@ -33,6 +33,17 @@ public sealed class EffectFormat : PVIObject, IEffectFormat, IEffectParamSource
     /// </summary>
     private static readonly string[] AfterEffectLstTags = ["scene3d", "sp3d", "extLst"];
 
+    /// <summary>
+    /// Alpha applied to the default effect colour, in thousandths of a percent (40%).
+    /// </summary>
+    private const string DefaultAlpha = "40000";
+
+    /// <summary>
+    /// Default radius for effects whose radius attribute is required or whose zero value would make
+    /// the effect invisible, in EMU (5 pt).
+    /// </summary>
+    private const string DefaultRadiusEmu = "63500";
+
     private XElement? _parentElement;
     private SlidePart? _slidePart;
 
@@ -87,6 +98,7 @@ public sealed class EffectFormat : PVIObject, IEffectFormat, IEffectParamSource
             return existing;
 
         var newEl = new XElement(ANs + tag);
+        ApplySchemaDefaults(newEl, tag);
         int rank = Array.IndexOf(EffectLstOrder, tag);
 
         if (rank < 0)
@@ -110,6 +122,75 @@ public sealed class EffectFormat : PVIObject, IEffectFormat, IEffectParamSource
         lst.Add(newEl);
         return newEl;
     }
+
+    /// <summary>
+    /// Fills in the attributes and children ECMA-376 §20.1.8 requires of a newly created effect
+    /// element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An effect element that omits a required attribute, or a shadow or glow that carries no
+    /// colour child, is not a subtle formatting difference: the schema calls the element
+    /// incomplete and PowerPoint refuses to open the whole file. The values here are neutral
+    /// starting points that the caller is expected to overwrite through the effect's own
+    /// properties; the point is that the element is complete the moment it exists.
+    /// </para>
+    /// <para>
+    /// The colour is a literal <c>srgbClr</c> rather than a <c>schemeClr</c> so that it does not
+    /// depend on a theme carrying any particular named colour.
+    /// </para>
+    /// <para>
+    /// Applied only to elements this method creates. An element that is already in the document
+    /// carries the caller's values and is left untouched.
+    /// </para>
+    /// </remarks>
+    /// <param name="element">The freshly created effect element.</param>
+    /// <param name="tag">Its local name.</param>
+    private static void ApplySchemaDefaults(XElement element, string tag)
+    {
+        switch (tag)
+        {
+            // CT_OuterShadowEffect / CT_InnerShadowEffect: exactly one EG_ColorChoice is required.
+            case "outerShdw":
+            case "innerShdw":
+                element.Add(DefaultColor());
+                break;
+
+            // CT_GlowEffect: one EG_ColorChoice is required. rad is optional but defaults to 0,
+            // which is a glow of no width, so it is set as well.
+            case "glow":
+                element.SetAttributeValue("rad", DefaultRadiusEmu);
+                element.Add(DefaultColor());
+                break;
+
+            // CT_PresetShadowEffect: prst is required, and one EG_ColorChoice with it.
+            case "prstShdw":
+                element.SetAttributeValue("prst", "shdw1");
+                element.Add(DefaultColor());
+                break;
+
+            // CT_SoftEdgesEffect: rad is required.
+            case "softEdge":
+                element.SetAttributeValue("rad", DefaultRadiusEmu);
+                break;
+
+            // CT_FillOverlayEffect: blend is required, and exactly one EG_FillProperties.
+            case "fillOverlay":
+                element.SetAttributeValue("blend", "over");
+                element.Add(new XElement(ANs + "noFill"));
+                break;
+
+            // CT_BlurEffect and CT_ReflectionEffect have no required attribute and no required
+            // child; an empty element is already schema-valid.
+            default:
+                break;
+        }
+    }
+
+    private static XElement DefaultColor() =>
+        new(ANs + "srgbClr",
+            new XAttribute("val", "000000"),
+            new XElement(ANs + "alpha", new XAttribute("val", DefaultAlpha)));
 
     private void RemoveEffectChild(string tag)
     {
