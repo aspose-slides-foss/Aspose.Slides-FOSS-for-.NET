@@ -33,8 +33,15 @@ public interface IComment
     PointF Position { get; set; }
 
     /// <summary>
-    /// Gets or sets parent comment.
+    /// Gets or sets the comment this one replies to.
     /// </summary>
+    /// <remarks>
+    /// The reply relationship is held in memory and is not written to the file. PowerPoint expresses
+    /// threads in a <c>ppt/threadedComments/</c> part, which this library does not write yet; the
+    /// classic <c>&lt;p:cm&gt;</c> element has no attribute for a parent, so a saved deck carries
+    /// flat comments. Setting this still governs <see cref="Remove"/>, which removes a comment
+    /// together with its replies.
+    /// </remarks>
     IComment? ParentComment { get; set; }
 
     /// <summary>

@@ -35,7 +35,7 @@ newPrs.Save("new.pptx", SaveFormat.Pptx);
 - **3D** — Bevel, camera, light rig, material, extrusion depth
 - **Document properties** — Core, app, and custom properties
 - **Notes slides** — Per-slide notes with header/footer management
-- **Comments** — Threaded comments with authors, timestamps, and positions
+- **Comments** — Comments with authors, timestamps, and positions (replies are tracked in memory; threads are not written to the file)
 - **Images** — Embed from file, bytes, or stream
 
 ---
