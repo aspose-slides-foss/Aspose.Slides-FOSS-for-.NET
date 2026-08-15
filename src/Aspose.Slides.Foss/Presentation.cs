@@ -299,16 +299,12 @@ public sealed class Presentation : IPresentation, IDisposable
 
         FlushBeforeSave();
 
-        if (_opcPackage is null)
-        {
-            SaveFormatSupport.MainPartContentTypeFor(format);
-            return;
-        }
+        var package = RequirePackage();
 
         // The requested format decides the content type of the main part, which is what identifies
         // the package to a reader. Unsupported formats raise here rather than write a presentation.
-        SaveFormatSupport.ApplyTo(_opcPackage, format);
-        _opcPackage.SaveToStream(stream);
+        SaveFormatSupport.ApplyTo(package, format);
+        package.SaveToStream(stream);
     }
 
     /// <inheritdoc />
@@ -344,13 +340,7 @@ public sealed class Presentation : IPresentation, IDisposable
 
         FlushBeforeSave();
 
-        if (_opcPackage is null)
-        {
-            SaveFormatSupport.MainPartContentTypeFor(format);
-            return;
-        }
-
-        var subset = BuildSubsetPackage(slides);
+        var subset = BuildSubsetPackage(RequirePackage(), slides);
 
         SaveFormatSupport.ApplyTo(subset, format);
         subset.SaveToStream(stream);
@@ -423,6 +413,7 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <summary>
     /// Builds a copy of the package carrying only the requested slides.
     /// </summary>
+    /// <param name="source">The package to copy.</param>
     /// <param name="slides">Zero-based indices of the slides to keep, in any order.</param>
     /// <returns>A package independent of this presentation's own.</returns>
     /// <remarks>
@@ -432,9 +423,9 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <c>&lt;p:sldIdLst&gt;</c> order does — and renaming them would invalidate every relationship
     /// that already points at them.
     /// </remarks>
-    private OpcPackage BuildSubsetPackage(int[] slides)
+    private static OpcPackage BuildSubsetPackage(OpcPackage source, int[] slides)
     {
-        var subset = _opcPackage!.Clone();
+        var subset = source.Clone();
         var subsetPart = PresentationPart.CreateFromPackage(subset);
 
         var slideParts = PackageSlides.ListSlideParts(subsetPart);
@@ -488,6 +479,19 @@ public sealed class Presentation : IPresentation, IDisposable
     /// Raises <see cref="ObjectDisposedException"/> once <see cref="Dispose"/> has run.
     /// </summary>
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    /// <summary>
+    /// Returns the package to save, refusing the save when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Every constructor assigns a package, so this cannot happen today. It raises rather than
+    /// returns quietly because returning quietly is the shape of the defect that cost a caller
+    /// their file: a save that writes nothing to the stream and reports success, which through
+    /// <see cref="WriteToFile"/> replaces the target with 0 bytes. Silence is the one behaviour a
+    /// save must never have.
+    /// </remarks>
+    private OpcPackage RequirePackage() =>
+        _opcPackage ?? throw new InvalidOperationException("This presentation has no package to save.");
 
     // ── Private initialization ────────────────────────────────
 
