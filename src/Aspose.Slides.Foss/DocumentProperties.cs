@@ -313,18 +313,48 @@ public sealed class DocumentProperties : IDocumentProperties
         EnsureCore().MarkDirty();
 
         if (_corePart is { IsDirty: true })
-            SavePart("docProps/core.xml", _corePart.Root);
+        {
+            SavePart("docProps/core.xml",
+                "application/vnd.openxmlformats-package.core-properties+xml",
+                "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties",
+                _corePart.Root);
+        }
+
         if (_appPart is { IsDirty: true })
-            SavePart("docProps/app.xml", _appPart.Root);
+        {
+            SavePart("docProps/app.xml",
+                PartContentTypes.ExtendedProperties,
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties",
+                _appPart.Root);
+        }
+
         if (_customPart is { IsDirty: true })
-            SavePart("docProps/custom.xml", _customPart.Root);
+        {
+            SavePart("docProps/custom.xml",
+                "application/vnd.openxmlformats-officedocument.custom-properties+xml",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
+                _customPart.Root);
+        }
     }
 
-    private void SavePart(string partPath, System.Xml.Linq.XElement root)
+    /// <summary>
+    /// Writes a document-properties part and declares it.
+    /// </summary>
+    /// <remarks>
+    /// These parts may not be in the package yet — a custom property creates one that never was.
+    /// Writing the bytes is the easy half: without a content-type <c>Override</c> the part has no
+    /// identity, and without a relationship from the package root nothing can reach it, so a reader
+    /// walking the package never sees the properties at all.
+    /// </remarks>
+    private void SavePart(string partPath, string contentType, string relationshipType,
+        System.Xml.Linq.XElement root)
     {
         using var ms = new MemoryStream();
         root.Save(ms);
         _package.SetPart(partPath, ms.ToArray());
+
+        OpcRegistration.AddContentTypeOverride(_package, partPath, contentType);
+        OpcRegistration.EnsureRelationship(_package, string.Empty, relationshipType, partPath);
     }
 
     // ── Clear ──────────────────────────────────────────────────

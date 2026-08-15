@@ -37,6 +37,10 @@ internal static class Ns
     internal const string SlideRelationshipType =
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
 
+    /// <summary>The relationship type of the custom document properties part.</summary>
+    internal const string CustomPropertiesRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties";
+
     /// <summary>The relationship type of a notes master.</summary>
     internal const string NotesMasterRelationshipType =
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster";

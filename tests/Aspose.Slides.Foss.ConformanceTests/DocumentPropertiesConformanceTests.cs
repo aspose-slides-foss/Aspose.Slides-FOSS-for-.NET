@@ -41,6 +41,42 @@ public sealed class DocumentPropertiesConformanceTests : IDisposable
     }
 
     /// <summary>
+    /// A custom property creates a part that was not in the package before. Writing the bytes is
+    /// the easy half; a part with no content-type declaration and no relationship from the package
+    /// root is not reachable and not identifiable, whatever is in it.
+    /// </summary>
+    [Fact]
+    public void ACustomPropertyProducesAPartThePackageDeclaresAndCanReach()
+    {
+        var path = _workspace.PathFor("custom-properties.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            presentation.DocumentProperties.SetCustomPropertyValue("Reviewer", "QA");
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using (var package = PptxPackage.Open(path))
+        {
+            Assert.True(package.Contains("docProps/custom.xml"),
+                $"No custom properties part was written. Parts: {string.Join(", ", package.PartNames)}");
+
+            PackageAssert.EveryPartResolvesAContentType(package);
+            PackageAssert.AllRelationshipReferencesResolve(package);
+
+            var declared = package.Relationships(string.Empty)
+                .Any(relationship => relationship.Type == Ns.CustomPropertiesRelationshipType);
+
+            Assert.True(declared,
+                "The package root declares no custom-properties relationship, so nothing points at " +
+                "docProps/custom.xml." +
+                $"{Environment.NewLine}{PackageAssert.Describe(package, "_rels/.rels")}");
+        }
+
+        SchemaValidation.HasNoSchemaErrors(path);
+    }
+
+    /// <summary>
     /// CT_Properties is a sequence, not a bag: an element in the wrong position is a schema error
     /// even when every element present is a legal one. Properties are set in whatever order the
     /// caller sets them, so the part has to impose the order itself on the way out.
