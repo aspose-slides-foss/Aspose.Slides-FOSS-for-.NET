@@ -51,6 +51,45 @@ internal static class OpcRegistration
     }
 
     /// <summary>
+    /// Removes the content type override for the given part name, if one is declared.
+    /// </summary>
+    /// <remarks>
+    /// An <c>Override</c> naming a part that is no longer in the package is invalid by
+    /// ISO/IEC 29500-2 §10.1.2.3, so deleting a part has to delete its declaration with it.
+    /// </remarks>
+    internal static void RemoveContentTypeOverride(OpcPackage package, string partName)
+    {
+        var ctData = package.GetPart("[Content_Types].xml");
+        if (ctData is null)
+            return;
+
+        XDocument doc;
+        using (var ms = new MemoryStream(ctData))
+            doc = XDocument.Load(ms);
+
+        var root = doc.Root;
+        if (root is null)
+            return;
+
+        var existing = root.Elements(CtNs + "Override")
+            .Where(e => string.Equals(
+                e.Attribute("PartName")?.Value?.TrimStart('/'),
+                partName.TrimStart('/'),
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (existing.Count == 0)
+            return;
+
+        foreach (var element in existing)
+            element.Remove();
+
+        using var outMs = new MemoryStream();
+        doc.Save(outMs);
+        package.SetPart("[Content_Types].xml", outMs.ToArray());
+    }
+
+    /// <summary>
     /// Declares a default content type for a file extension, adding the <c>Default</c> element if
     /// it is absent and correcting it if it names a different content type.
     /// </summary>

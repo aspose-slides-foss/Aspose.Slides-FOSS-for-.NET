@@ -550,31 +550,8 @@ public sealed class SlideCollection : ISlideCollection
 
     private Slide CreateNewSlide(ILayoutSlide? layout)
     {
-        var slideIndex = Slides.Count + 1;
-        var partName = $"ppt/slides/slide{slideIndex}.xml";
-
-        // Find a unique part name
-        while (_package!.GetPart(partName) is not null)
-        {
-            slideIndex++;
-            partName = $"ppt/slides/slide{slideIndex}.xml";
-        }
-
-        var slideXml = BuildEmptySlideXml();
-
-        // Store the slide part in the OPC package
-        using var ms = new MemoryStream();
-        slideXml.Save(ms);
-        _package.SetPart(partName, ms.ToArray());
-
-        // Create slide rels with layout reference and load into SlidePart
-        var slidePart = new SlidePart();
-        slidePart.InitInternal(partName);
-        slidePart.Element = slideXml.Root;
-        slidePart.Package = _package;
-        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
-        var relsPath = GetRelsPath(partName);
-        _package.SetPart(relsPath, slidePart.RelsManager.ToBytes());
+        var partName = AllocateSlidePartName();
+        var slidePart = StoreSlidePart(partName, BuildEmptySlideXml());
 
         var slide = new Slide();
         slide.PartName = partName;
@@ -588,14 +565,7 @@ public sealed class SlideCollection : ISlideCollection
 
     private Slide CloneSlide(ISlide sourceSlide)
     {
-        var slideIndex = Slides.Count + 1;
-        var partName = $"ppt/slides/slide{slideIndex}.xml";
-
-        while (_package!.GetPart(partName) is not null)
-        {
-            slideIndex++;
-            partName = $"ppt/slides/slide{slideIndex}.xml";
-        }
+        var partName = AllocateSlidePartName();
 
         // Clone slide XML from source
         XDocument slideXml;
@@ -608,18 +578,7 @@ public sealed class SlideCollection : ISlideCollection
             slideXml = BuildEmptySlideXml();
         }
 
-        using var ms = new MemoryStream();
-        slideXml.Save(ms);
-        _package.SetPart(partName, ms.ToArray());
-
-        // Create slide rels with layout reference and load into SlidePart
-        var slidePart = new SlidePart();
-        slidePart.InitInternal(partName);
-        slidePart.Element = slideXml.Root;
-        slidePart.Package = _package;
-        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
-        var relsPath = GetRelsPath(partName);
-        _package.SetPart(relsPath, slidePart.RelsManager.ToBytes());
+        var slidePart = StoreSlidePart(partName, slideXml);
 
         var slide = new Slide();
         slide.PartName = partName;
@@ -629,6 +588,50 @@ public sealed class SlideCollection : ISlideCollection
         slide.SetSlidePart(slidePart);
 
         return slide;
+    }
+
+    /// <summary>
+    /// Picks a slide part name that is not already taken in the package.
+    /// </summary>
+    private string AllocateSlidePartName()
+    {
+        var slideIndex = Slides.Count + 1;
+        var partName = $"ppt/slides/slide{slideIndex}.xml";
+
+        while (_package!.GetPart(partName) is not null)
+        {
+            slideIndex++;
+            partName = $"ppt/slides/slide{slideIndex}.xml";
+        }
+
+        return partName;
+    }
+
+    /// <summary>
+    /// Writes a new slide part into the package with everything that makes it a slide: the markup,
+    /// its content-type <c>Override</c> and its relationship to a layout.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Override</c> is not optional bookkeeping. Without it the part resolves through
+    /// <c>&lt;Default Extension="xml"/&gt;</c> to <c>application/xml</c>, and a reader that checks
+    /// content types — the Open XML SDK, python-pptx — refuses the package rather than the part.
+    /// </remarks>
+    private SlidePart StoreSlidePart(string partName, XDocument slideXml)
+    {
+        using var ms = new MemoryStream();
+        slideXml.Save(ms);
+        _package!.SetPart(partName, ms.ToArray());
+
+        OpcRegistration.AddContentTypeOverride(_package, partName, PartContentTypes.Slide);
+
+        var slidePart = new SlidePart();
+        slidePart.InitInternal(partName);
+        slidePart.Element = slideXml.Root;
+        slidePart.Package = _package;
+        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
+        slidePart.RelsManager.Save();
+
+        return slidePart;
     }
 
     private void UpdateSlideNumbers()

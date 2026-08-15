@@ -121,6 +121,10 @@ internal sealed class NotesSlidePart
         doc.Save(ms);
         package.SetPart(notesPartName, ms.ToArray());
 
+        // Declare what the part is. Without an Override it resolves through the "xml" Default to
+        // application/xml, and a content-type-checking reader refuses the package.
+        OpcRegistration.AddContentTypeOverride(package, notesPartName, PartContentTypes.NotesSlide);
+
         // Create notes slide rels pointing back to the parent slide
         var notesRels = new RelsManager();
         var relativeSlideTarget = ComputeRelativeTarget(notesPartName, slidePartName);
@@ -158,6 +162,7 @@ internal sealed class NotesSlidePart
     {
         package.RemovePart(partName);
         package.RemovePart(GetRelsPath(partName));
+        OpcRegistration.RemoveContentTypeOverride(package, partName);
     }
 
     /// <summary>
