@@ -16,7 +16,8 @@ dotnet build
 
 - **`Presentation`** is the root object. It owns slides, masters, layouts, images, document properties, and comments.
 - Always wrap `Presentation` in a `using` statement to ensure proper cleanup.
-- Save with `prs.Save("out.pptx", SaveFormat.Pptx)`. Only PPTX output is supported.
+- Save with `prs.Save("out.pptx", SaveFormat.Pptx)`. `SaveFormat.Ppsx` and `SaveFormat.Potx` are written too; every other value raises `NotSupportedException`.
+- Give the file the extension of the format you ask for — `.pptx`, `.ppsx`, `.potx`. PowerPoint refuses a file whose name and content type disagree.
 - Unknown XML parts are preserved verbatim on save — round-tripping is safe.
 
 ## Import Pattern
@@ -191,7 +192,7 @@ src/
 ## Do
 
 - Always wrap `Presentation` in a `using` statement
-- Use `SaveFormat.Pptx` when saving — it is the only supported format
+- Use `SaveFormat.Pptx` when saving, unless you want a slideshow (`Ppsx`) or a template (`Potx`) — those three are what `Save` writes
 - Use `Color.FromArgb(a, r, g, b)` or named constants like `Color.Red`, `Color.Blue`
 - Access slides via `prs.Slides[index]` — slides are 0-indexed
 - Use `NullableBool` enum (`NullableBool.False`, `NullableBool.True`, `NullableBool.NotDefined`) for boolean formatting properties like `FontBold`
