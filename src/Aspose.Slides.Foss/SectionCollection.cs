@@ -313,6 +313,13 @@ public sealed class SectionCollection : ISectionCollection
     /// <summary>
     /// The index in the slide list at which each section begins, in section order.
     /// </summary>
+    /// <remarks>
+    /// Sections partition the slide list, so the boundaries have to increase. A section whose start
+    /// slide comes before the one before it is clamped, which gives it no slides. That is not a
+    /// caller error to raise on: slides can be reordered after the sections are made, so the same
+    /// pair of sections can be out of order at one moment and in order at the next. The clamp keeps
+    /// the written list monotone whatever the slide order happens to be.
+    /// </remarks>
     private List<int> Boundaries(List<ISlide> slides)
     {
         var boundaries = new List<int>(_sections.Count);
