@@ -397,10 +397,27 @@ public sealed class Presentation : IPresentation, IDisposable
         // Sections are written into presentation.xml, so they go in before it is serialized.
         _sections?.Flush();
         _presentationPart?.Flush();
-        _documentProperties?.Save();
         FlushComments();
         FlushNotesSlides();
         FlushSlides();
+
+        // docProps describes the package, so it is measured last, once everything else is in it.
+        RefreshExtendedProperties();
+        _documentProperties?.Save();
+    }
+
+    /// <summary>
+    /// Recomputes what <c>docProps/app.xml</c> reports about this deck.
+    /// </summary>
+    private void RefreshExtendedProperties()
+    {
+        if (_opcPackage is null)
+            return;
+
+        int hidden = SlidesInternal.Count(slide => slide.Hidden);
+        var statistics = DeckStatistics.Collect(_opcPackage, hidden);
+
+        ((DocumentProperties)DocumentProperties).RefreshDerivedProperties(statistics);
     }
 
     /// <summary>

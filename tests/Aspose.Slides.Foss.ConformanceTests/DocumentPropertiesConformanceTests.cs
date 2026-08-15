@@ -40,6 +40,29 @@ public sealed class DocumentPropertiesConformanceTests : IDisposable
             $"{Environment.NewLine}{PackageAssert.Describe(package, "docProps/app.xml")}");
     }
 
+    /// <summary>
+    /// CT_Properties is a sequence, not a bag: an element in the wrong position is a schema error
+    /// even when every element present is a legal one. Properties are set in whatever order the
+    /// caller sets them, so the part has to impose the order itself on the way out.
+    /// </summary>
+    [Fact]
+    public void ExtendedPropertiesProduceASchemaValidPackage()
+    {
+        var path = _workspace.PathFor("app-properties-valid.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            // Deliberately set in an order the schema does not declare them in.
+            presentation.DocumentProperties.HyperlinkBase = "https://example.com/";
+            presentation.DocumentProperties.PresentationFormat = "On-screen Show (4:3)";
+            presentation.DocumentProperties.Company = "Example";
+            presentation.DocumentProperties.ApplicationTemplate = "Blank";
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        SchemaValidation.HasNoSchemaErrors(path);
+    }
+
     [Fact]
     public void ExtendedPropertiesAreUpdatedWhenSlidesAreRemoved()
     {

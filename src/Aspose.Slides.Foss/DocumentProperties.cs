@@ -233,6 +233,14 @@ public sealed class DocumentProperties : IDocumentProperties
 
     // ── App read-only int properties ──────────────────────────
 
+    /// <summary>
+    /// Recomputes the counts <c>docProps/app.xml</c> reports about the deck.
+    /// </summary>
+    internal void RefreshDerivedProperties(DeckStatistics statistics)
+    {
+        EnsureApp().SetDerivedCounts(statistics);
+    }
+
     /// <inheritdoc />
     public int Slides => EnsureApp().Slides;
 
@@ -298,6 +306,12 @@ public sealed class DocumentProperties : IDocumentProperties
     /// </summary>
     internal void Save()
     {
+        // Recording when the file was last written is part of writing it, and it must not depend on
+        // the caller having touched any core property. Without this, dcterms:modified stayed at
+        // whatever date the deck was created, which is worse than absent: it is a wrong answer.
+        EnsureCore().Modified = DateTime.UtcNow;
+        EnsureCore().MarkDirty();
+
         if (_corePart is { IsDirty: true })
             SavePart("docProps/core.xml", _corePart.Root);
         if (_appPart is { IsDirty: true })

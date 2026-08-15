@@ -63,8 +63,13 @@ internal sealed class AppPropertiesPart
 
     internal string? PresentationFormat
     {
-        get => GetElement("PresentatFormat");
-        set => SetElement("PresentatFormat", value);
+        get => GetElement("PresentationFormat") ?? GetElement("PresentatFormat");
+        set
+        {
+            // Earlier versions wrote "PresentatFormat", which CT_Properties does not declare.
+            _root.Element(EpNs + "PresentatFormat")?.Remove();
+            SetElement("PresentationFormat", value);
+        }
     }
 
     internal string? Template
@@ -171,7 +176,123 @@ internal sealed class AppPropertiesPart
         }
     }
 
-    internal XElement Root => _root;
+    internal XElement Root
+    {
+        get
+        {
+            SortIntoSchemaOrder();
+            return _root;
+        }
+    }
+
+    /// <summary>
+    /// Rewrites the counts this part is supposed to describe rather than remember.
+    /// </summary>
+    /// <remarks>
+    /// These are the numbers a file browser, a search indexer and PowerPoint's own info pane read
+    /// to describe a deck without opening it. They are derived from the deck, so they are recomputed
+    /// on every save; a part that ships stale or absent numbers is worse than one that ships none,
+    /// because a reader has no way to tell that what it is being told is wrong.
+    /// </remarks>
+    internal void SetDerivedCounts(DeckStatistics statistics)
+    {
+        SetElement("Words", statistics.Words.ToString(CultureInfo.InvariantCulture));
+        SetElement("Paragraphs", statistics.Paragraphs.ToString(CultureInfo.InvariantCulture));
+        SetElement("Slides", statistics.Slides.ToString(CultureInfo.InvariantCulture));
+        SetElement("Notes", statistics.Notes.ToString(CultureInfo.InvariantCulture));
+        SetElement("HiddenSlides", statistics.HiddenSlides.ToString(CultureInfo.InvariantCulture));
+        SetHeadingPairs(statistics);
+        SetTitlesOfParts(statistics);
+        MarkDirty();
+    }
+
+    /// <summary>
+    /// Writes the "Theme"/"Slide Titles" heading pairs that index the TitlesOfParts vector.
+    /// </summary>
+    private void SetHeadingPairs(DeckStatistics statistics)
+    {
+        var vector = new XElement(VtNs + "vector",
+            new XAttribute("size", 4),
+            new XAttribute("baseType", "variant"),
+            Variant(new XElement(VtNs + "lpstr", "Theme")),
+            Variant(new XElement(VtNs + "i4", statistics.ThemeNames.Count)),
+            Variant(new XElement(VtNs + "lpstr", "Slide Titles")),
+            Variant(new XElement(VtNs + "i4", statistics.SlideTitles.Count)));
+
+        ReplaceElement("HeadingPairs", vector);
+    }
+
+    /// <summary>
+    /// Writes the theme names followed by the slide titles, in the order HeadingPairs indexes them.
+    /// </summary>
+    private void SetTitlesOfParts(DeckStatistics statistics)
+    {
+        var vector = new XElement(VtNs + "vector",
+            new XAttribute("size", statistics.ThemeNames.Count + statistics.SlideTitles.Count),
+            new XAttribute("baseType", "lpstr"));
+
+        foreach (var name in statistics.ThemeNames)
+            vector.Add(new XElement(VtNs + "lpstr", name));
+        foreach (var title in statistics.SlideTitles)
+            vector.Add(new XElement(VtNs + "lpstr", title));
+
+        ReplaceElement("TitlesOfParts", vector);
+    }
+
+    private static XElement Variant(XElement content) => new(VtNs + "variant", content);
+
+    private void ReplaceElement(string name, XElement content)
+    {
+        var element = _root.Element(EpNs + name);
+        if (element is null)
+        {
+            element = new XElement(EpNs + name);
+            _root.Add(element);
+        }
+
+        element.RemoveNodes();
+        element.Add(content);
+    }
+
+    /// <summary>
+    /// The order CT_Properties declares its children in (ECMA-376 Part 1, 15.2.12.2).
+    /// </summary>
+    /// <remarks>
+    /// It is a sequence, not a choice: an element in the wrong place is a schema error even though
+    /// every element present is a legal one. Properties are set in whatever order a caller happens
+    /// to set them, so the order is imposed here, on the way out.
+    /// </remarks>
+    private static readonly string[] SchemaOrder =
+    [
+        "Template", "Manager", "Company", "Pages", "Words", "Characters", "PresentationFormat",
+        "Lines", "Paragraphs", "Slides", "Notes", "TotalTime", "HiddenSlides", "MMClips",
+        "ScaleCrop", "HeadingPairs", "TitlesOfParts", "LinksUpToDate", "CharactersWithSpaces",
+        "SharedDoc", "HyperlinkBase", "HLinks", "HyperlinksChanged", "DigSig", "Application",
+        "AppVersion", "DocSecurity",
+    ];
+
+    private void SortIntoSchemaOrder()
+    {
+        var children = _root.Elements().ToList();
+        if (children.Count < 2)
+            return;
+
+        var ordered = children
+            .OrderBy(e =>
+            {
+                var index = Array.IndexOf(SchemaOrder, e.Name.LocalName);
+                return index < 0 ? SchemaOrder.Length : index;
+            })
+            .ToList();
+
+        if (ordered.SequenceEqual(children))
+            return;
+
+        foreach (var child in children)
+            child.Remove();
+        foreach (var child in ordered)
+            _root.Add(child);
+    }
 
     /// <summary>
     /// Resets all writable app properties to defaults.

@@ -45,6 +45,45 @@ internal static class PackageSlides
     }
 
     /// <summary>
+    /// Lists the slide parts a written package registers, reading <c>ppt/presentation.xml</c> and
+    /// its relationships out of the package rather than from a live presentation part.
+    /// </summary>
+    /// <remarks>
+    /// This is the view a reader gets. It is also the only correct one once the parts have been
+    /// written, because the relationships part is written by more than one owner during a save.
+    /// </remarks>
+    internal static List<string> ListSlideParts(OpcPackage package)
+    {
+        var parts = new List<string>();
+
+        var presentationData = package.GetPart(PresentationPartName);
+        var relsData = package.GetPart(OpcPaths.RelsPartNameFor(PresentationPartName));
+        if (presentationData is null || relsData is null)
+            return parts;
+
+        var rels = new RelsManager();
+        rels.Load(relsData);
+
+        using var ms = new MemoryStream(presentationData);
+        var sldIdLst = XDocument.Load(ms).Root?.Element(PNs + "sldIdLst");
+        if (sldIdLst is null)
+            return parts;
+
+        foreach (var sldId in sldIdLst.Elements(PNs + "sldId"))
+        {
+            var relId = sldId.Attribute(RNs + "id")?.Value;
+            if (relId is null)
+                continue;
+
+            var rel = rels.GetById(relId);
+            if (rel is not null && !rel.IsExternal)
+                parts.Add(ResolveFromPresentation(rel.Target));
+        }
+
+        return parts;
+    }
+
+    /// <summary>
     /// Removes a slide from a package: its <c>&lt;p:sldId&gt;</c> entry, the presentation
     /// relationship that entry names, the part, the part's relationships, its content-type
     /// <c>Override</c>, and any notes slide or comments part that only this slide reached.
