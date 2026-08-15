@@ -75,6 +75,89 @@ public sealed class NotesSlideConformanceTests : IDisposable
         SchemaValidation.HasNoSchemaErrors(path);
     }
 
+    /// <summary>
+    /// A theme part belongs to exactly one master. PowerPoint refuses a package whose notes master
+    /// and slide master relate to the same theme part — it validates clean against the schema, so
+    /// only PowerPoint itself reports it, and only by refusing to open the file at all.
+    /// </summary>
+    [Fact]
+    public void NoThemePartIsSharedBetweenTwoMasters()
+    {
+        var path = WriteDeckWithNotes("notes-master-theme.pptx");
+
+        using var package = PptxPackage.Open(path);
+
+        AssertEachMasterHasItsOwnTheme(package);
+    }
+
+    /// <summary>
+    /// The same rule on the path the library is most used for: open an existing deck, add speaker
+    /// notes, save. The notes master is created here too, so it needs its own theme here too.
+    /// </summary>
+    [Fact]
+    public void AddingNotesToAnExistingDeckLeavesEveryMasterItsOwnTheme()
+    {
+        var path = _workspace.PathFor("loaded-notes.pptx");
+
+        using (var presentation = new Presentation(TestFixtures.SimpleDeck))
+        {
+            var notes = presentation.Slides[0].NotesSlideManager.AddNotesSlide();
+            notes.NotesTextFrame!.Text = "Speaker notes";
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+
+        AssertEachMasterHasItsOwnTheme(package);
+        SchemaValidation.HasNoSchemaErrors(path);
+    }
+
+    /// <summary>
+    /// Asserts that every master part in the package relates to a theme part, and that no two
+    /// masters relate to the same one.
+    /// </summary>
+    private static void AssertEachMasterHasItsOwnTheme(PptxPackage package)
+    {
+        var masters = package.ContentPartNames
+            .Where(IsMasterPart)
+            .ToList();
+
+        Assert.True(masters.Count > 0,
+            $"The package has no master parts at all. Parts: {string.Join(", ", package.PartNames)}");
+
+        var themeOfMaster = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var master in masters)
+        {
+            var themes = package.Relationships(master)
+                .Where(relationship => relationship.Type == Ns.ThemeRelationshipType)
+                .Select(relationship => PptxPackage.ResolveTarget(master, relationship.Target))
+                .ToList();
+
+            Assert.True(themes.Count == 1,
+                $"{master} relates to {themes.Count} theme part(s), expected exactly one." +
+                $"{Environment.NewLine}{PackageAssert.Describe(package, PptxPackage.RelationshipsPartNameFor(master))}");
+
+            themeOfMaster[master] = themes[0];
+        }
+
+        var shared = themeOfMaster
+            .GroupBy(pair => pair.Value, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => $"'{group.Key}' is related from {string.Join(" and ", group.Select(pair => pair.Key))}")
+            .ToList();
+
+        Assert.True(shared.Count == 0,
+            $"{shared.Count} theme part(s) are shared between masters:{Environment.NewLine}" +
+            string.Join(Environment.NewLine, shared));
+    }
+
+    private static bool IsMasterPart(string partName) =>
+        (partName.StartsWith("ppt/slideMasters/", StringComparison.Ordinal)
+            || partName.StartsWith("ppt/notesMasters/", StringComparison.Ordinal)
+            || partName.StartsWith("ppt/handoutMasters/", StringComparison.Ordinal))
+        && partName.EndsWith(".xml", StringComparison.Ordinal);
+
     private string WriteDeckWithNotes(string fileName)
     {
         var path = _workspace.PathFor(fileName);

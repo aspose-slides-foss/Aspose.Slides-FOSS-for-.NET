@@ -22,6 +22,9 @@ internal static class PartContentTypes
     internal const string NotesMaster =
         "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml";
 
+    internal const string Theme =
+        "application/vnd.openxmlformats-officedocument.theme+xml";
+
     internal const string Comments =
         "application/vnd.openxmlformats-officedocument.presentationml.comments+xml";
 

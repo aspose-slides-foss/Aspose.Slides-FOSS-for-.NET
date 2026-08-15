@@ -45,6 +45,10 @@ internal static class Ns
     internal const string NotesMasterRelationshipType =
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster";
 
+    /// <summary>The relationship type of a theme.</summary>
+    internal const string ThemeRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
+
     /// <summary>
     /// Builds a namespace manager carrying the prefixes used by the XPath expressions in these tests.
     /// </summary>

@@ -23,7 +23,7 @@ internal static class NotesMasterPart
     private const string ThemeRelType =
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
 
-    private const string ThemePartName = "ppt/theme/theme1.xml";
+    private const string ThemeDirectory = "ppt/theme";
 
     private static readonly XNamespace PNs = "http://schemas.openxmlformats.org/presentationml/2006/main";
     private static readonly XNamespace RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -47,17 +47,63 @@ internal static class NotesMasterPart
         package.SetPart(PartName, Encoding.UTF8.GetBytes(NotesMasterXml));
         OpcRegistration.AddContentTypeOverride(package, PartName, PartContentTypes.NotesMaster);
 
-        // A master inherits its formatting from a theme, so relate it to the one already here
-        // rather than writing a second copy of the same theme part.
-        if (package.GetPart(ThemePartName) is not null)
-        {
-            var rels = new RelsManager { Package = package, OwnerPartName = PartName };
-            rels.Add(ThemeRelType, OpcPaths.Relative(OpcPaths.DirectoryOf(PartName), ThemePartName));
-            rels.Save();
-        }
+        RelateOwnTheme(package);
 
         Register(presentationPart);
         return PartName;
+    }
+
+    /// <summary>
+    /// Gives the notes master a theme part of its own, copied from the theme the package already
+    /// uses so the notes inherit the same fonts and colours.
+    /// </summary>
+    /// <remarks>
+    /// A theme part belongs to exactly one master. Relating the notes master to the slide master's
+    /// theme produces a package that validates clean against ECMA-376 and that every library reads
+    /// back correctly, and that PowerPoint refuses to open — the whole file, not the notes. Decks
+    /// PowerPoint writes carry <c>ppt/theme/theme1.xml</c> for the slide master and
+    /// <c>ppt/theme/theme2.xml</c> for the notes master, which is what this reproduces.
+    /// </remarks>
+    private static void RelateOwnTheme(OpcPackage package)
+    {
+        var source = FindThemeToCopy(package);
+        if (source is null)
+            return;
+
+        var themePartName = NextFreeThemePartName(package);
+        package.SetPart(themePartName, source);
+        OpcRegistration.AddContentTypeOverride(package, themePartName, PartContentTypes.Theme);
+
+        var rels = new RelsManager { Package = package, OwnerPartName = PartName };
+        rels.Add(ThemeRelType, OpcPaths.Relative(OpcPaths.DirectoryOf(PartName), themePartName));
+        rels.Save();
+    }
+
+    /// <summary>
+    /// Returns the bytes of a theme part already in the package, preferring the first one, or
+    /// <c>null</c> when the package has no theme at all.
+    /// </summary>
+    private static byte[]? FindThemeToCopy(OpcPackage package)
+    {
+        var firstTheme = package.GetSortedPartNames()
+            .FirstOrDefault(name =>
+                name.StartsWith(ThemeDirectory + "/", StringComparison.OrdinalIgnoreCase) &&
+                name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
+
+        return firstTheme is null ? null : package.GetPart(firstTheme);
+    }
+
+    /// <summary>
+    /// Returns the lowest <c>ppt/theme/themeN.xml</c> name the package does not already use.
+    /// </summary>
+    private static string NextFreeThemePartName(OpcPackage package)
+    {
+        for (var index = 1; ; index++)
+        {
+            var candidate = $"{ThemeDirectory}/theme{index}.xml";
+            if (package.GetPart(candidate) is null)
+                return candidate;
+        }
     }
 
     /// <summary>

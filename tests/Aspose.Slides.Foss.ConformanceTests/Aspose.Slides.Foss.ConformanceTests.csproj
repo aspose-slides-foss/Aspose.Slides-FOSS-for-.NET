@@ -29,4 +29,11 @@
     <ProjectReference Include="..\..\src\Aspose.Slides.Foss\Aspose.Slides.Foss.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\test_data\**\*">
+      <Link>test_data\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
