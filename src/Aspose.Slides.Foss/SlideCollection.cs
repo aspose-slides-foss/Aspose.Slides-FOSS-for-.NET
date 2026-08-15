@@ -714,10 +714,17 @@ public sealed class SlideCollection : ISlideCollection
                 new XAttribute(RNs + "id", relId)));
         }
 
-        // Insert sldIdLst after sldMasterIdLst (or at beginning)
-        var masterIdLst = root.Element(PNs + "sldMasterIdLst");
-        if (masterIdLst is not null)
-            masterIdLst.AddAfterSelf(sldIdLst);
+        // CT_Presentation is a sequence: sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst,
+        // sldIdLst, sldSz, ... Placing sldIdLst after sldMasterIdLst alone puts it in front of the
+        // notes master list when there is one, which is a schema error even though every element
+        // present is legal. Go after the last master list instead.
+        var precedingLists = new[] { "sldMasterIdLst", "notesMasterIdLst", "handoutMasterIdLst" };
+        var lastPreceding = precedingLists
+            .Select(name => root.Element(PNs + name))
+            .LastOrDefault(element => element is not null);
+
+        if (lastPreceding is not null)
+            lastPreceding.AddAfterSelf(sldIdLst);
         else
             root.AddFirst(sldIdLst);
 

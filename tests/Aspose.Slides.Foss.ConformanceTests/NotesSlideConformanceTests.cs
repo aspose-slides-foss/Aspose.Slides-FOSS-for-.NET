@@ -54,6 +54,27 @@ public sealed class NotesSlideConformanceTests : IDisposable
             $"{Environment.NewLine}{PackageAssert.Describe(package, "ppt/presentation.xml")}");
     }
 
+    /// <summary>
+    /// CT_Presentation is a sequence, so a notes master list has to sit between the slide master
+    /// list and the slide list. Every slide mutation rewrites the slide list, and putting it back in
+    /// the wrong place makes the presentation part invalid while every element in it is legal.
+    /// </summary>
+    [Fact]
+    public void ChangingTheSlideListKeepsThePresentationPartInSchemaOrder()
+    {
+        var path = _workspace.PathFor("notes-then-slide-change.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var notes = presentation.Slides[0].NotesSlideManager.AddNotesSlide();
+            notes.NotesTextFrame!.Text = "Speaker notes";
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        SchemaValidation.HasNoSchemaErrors(path);
+    }
+
     private string WriteDeckWithNotes(string fileName)
     {
         var path = _workspace.PathFor(fileName);
