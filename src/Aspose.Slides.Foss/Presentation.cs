@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Aspose.Slides.Foss.Export;
 using Aspose.Slides.Foss.Internal;
+using Aspose.Slides.Foss.Internal.Export;
 
 namespace Aspose.Slides.Foss;
 
@@ -260,6 +261,10 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, SaveFormat format)
     {
+        // Refuse before touching the target: File.Create truncates, and a save that cannot succeed
+        // must not destroy whatever the caller already had at that path.
+        SaveFormatSupport.MainPartContentTypeFor(format);
+
         using var stream = File.Create(fname);
         Save(stream, format);
     }
@@ -272,7 +277,17 @@ public sealed class Presentation : IPresentation, IDisposable
         FlushComments();
         FlushNotesSlides();
         FlushSlides();
-        _opcPackage?.SaveToStream(stream);
+
+        if (_opcPackage is null)
+        {
+            SaveFormatSupport.MainPartContentTypeFor(format);
+            return;
+        }
+
+        // The requested format decides the content type of the main part, which is what identifies
+        // the package to a reader. Unsupported formats raise here rather than write a presentation.
+        SaveFormatSupport.ApplyTo(_opcPackage, format);
+        _opcPackage.SaveToStream(stream);
     }
 
     /// <inheritdoc />
