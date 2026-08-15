@@ -10,7 +10,6 @@ public sealed class Picture : ISlidesPicture
 {
     private static readonly XNamespace ANs = "http://schemas.openxmlformats.org/drawingml/2006/main";
     private static readonly XNamespace RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-    private static readonly string ImageRelType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
     private static readonly string HyperlinkRelType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
     private static readonly XName PendingPartNameAttr = "_pendingPartName";
 
@@ -56,8 +55,8 @@ public sealed class Picture : ISlidesPicture
             if (rel is null)
                 return null;
 
-            var absolutePartName = ResolveRelativePath(
-                GetDirectoryPart(_slidePart.PartName), rel.Target);
+            var absolutePartName = OpcPaths.Resolve(
+                OpcPaths.DirectoryOf(_slidePart.PartName), rel.Target);
 
             var presentation = _parentSlideRef?.Presentation;
             if (presentation is not Presentation pres)
@@ -150,73 +149,9 @@ public sealed class Picture : ISlidesPicture
 
     private static void SetBlipImage(XElement blip, SlidePart slidePart, PPImage ppImage)
     {
-        var fromDir = GetDirectoryPart(slidePart.PartName);
-        var relativePath = ComputeRelativePath(fromDir, ppImage.PartName);
-
-        // Search for existing image relationship resolving to the same part.
-        string? existingRelId = null;
-        foreach (var rel in slidePart.RelsManager.FindByType(ImageRelType))
-        {
-            var resolvedPath = ResolveRelativePath(fromDir, rel.Target);
-            if (string.Equals(resolvedPath, ppImage.PartName, StringComparison.OrdinalIgnoreCase))
-            {
-                existingRelId = rel.Id;
-                break;
-            }
-        }
-
-        var relId = existingRelId ?? slidePart.RelsManager.Add(ImageRelType, relativePath);
-
-        if (existingRelId is null)
-            slidePart.RelsManager.Save();
+        var relId = slidePart.RelsManager.EnsureImageRelationship(ppImage.PartName);
 
         blip.SetAttributeValue(RNs + "embed", relId);
         slidePart.Save();
-    }
-
-    private static string ComputeRelativePath(string fromDir, string toPath)
-    {
-        var fromParts = fromDir.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var toParts = toPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-        int common = 0;
-        int max = Math.Min(fromParts.Length, toParts.Length);
-        while (common < max && string.Equals(fromParts[common], toParts[common], StringComparison.OrdinalIgnoreCase))
-        {
-            common++;
-        }
-
-        var segments = new List<string>();
-        for (int i = common; i < fromParts.Length; i++)
-            segments.Add("..");
-        for (int i = common; i < toParts.Length; i++)
-            segments.Add(toParts[i]);
-
-        return string.Join("/", segments);
-    }
-
-    private static string ResolveRelativePath(string baseDir, string relativePath)
-    {
-        var parts = baseDir.Split('/', StringSplitOptions.RemoveEmptyEntries).ToList();
-        foreach (var segment in relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (segment == "..")
-            {
-                if (parts.Count > 0)
-                    parts.RemoveAt(parts.Count - 1);
-            }
-            else if (segment != ".")
-            {
-                parts.Add(segment);
-            }
-        }
-
-        return string.Join("/", parts);
-    }
-
-    private static string GetDirectoryPart(string partName)
-    {
-        var lastSlash = partName.LastIndexOf('/');
-        return lastSlash >= 0 ? partName[..lastSlash] : string.Empty;
     }
 }

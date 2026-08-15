@@ -11,6 +11,7 @@ internal sealed class SlidePart
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout";
 
     private readonly RelsManager _relsManager = new();
+    private OpcPackage? _package;
     private XElement? _element;
     private string _partName = string.Empty;
 
@@ -35,8 +36,17 @@ internal sealed class SlidePart
 
     /// <summary>
     /// Gets or sets the OPC package reference for this slide part.
+    /// Also gives <see cref="RelsManager"/> the package it serializes into.
     /// </summary>
-    internal OpcPackage? Package { get; set; }
+    internal OpcPackage? Package
+    {
+        get => _package;
+        set
+        {
+            _package = value;
+            _relsManager.Package = value;
+        }
+    }
 
     /// <summary>
     /// Gets the layout slide part name resolved from this slide's relationships.
@@ -60,6 +70,7 @@ internal sealed class SlidePart
     internal void InitInternal(string partName)
     {
         _partName = partName;
+        _relsManager.OwnerPartName = partName;
     }
 
     /// <summary>

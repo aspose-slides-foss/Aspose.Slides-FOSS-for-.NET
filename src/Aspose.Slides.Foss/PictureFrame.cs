@@ -104,7 +104,7 @@ public sealed class PictureFrame : GeometryShape, IPictureFrame
                 return null;
 
             var format = new PictureFillFormat();
-            format.InitInternal(blipFill, _slidePart);
+            format.InitInternal(blipFill, _slidePart, _parentSlide);
             return format;
         }
     }

@@ -203,7 +203,7 @@ public sealed class Presentation : IPresentation, IDisposable
             if (_imagesCollection is null)
             {
                 _imagesCollection = new ImageCollection();
-                _imagesCollection.InitInternal(_opcPackage!, new ContentTypesManager());
+                _imagesCollection.InitInternal(_opcPackage!);
             }
             return _imagesCollection;
         }
@@ -537,10 +537,20 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         foreach (var slide in SlidesInternal)
         {
-            if (slide is Slide s)
-            {
-                s.GetSlidePartInternal()?.Save();
-            }
+            if (slide is not Slide s)
+                continue;
+
+            var slidePart = s.GetSlidePartInternal();
+            if (slidePart is null)
+                continue;
+
+            // Deferred image references are resolved over the whole slide, not just its paragraphs:
+            // a blip in a shape's fill never passes through the text path, and an unresolved marker
+            // attribute would otherwise be written into the package.
+            if (slidePart.Element is not null)
+                Picture.FlushPendingBlipImages(slidePart.Element, slidePart, s);
+
+            slidePart.Save();
         }
     }
 

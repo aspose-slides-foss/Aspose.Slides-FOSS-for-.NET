@@ -107,7 +107,9 @@ public class Shape : PVIObject, IShape
 
             var spPr = EnsureSpPr();
             var ff = new FillFormat();
-            ff.InitInternal(spPr, _parentSlide);
+            // The slide part has to travel with the fill: a picture fill needs a slide-scoped
+            // relationship, and without the part there is nowhere to write one.
+            ff.InitInternal(spPr, _parentSlide, _slidePart);
             return ff;
         }
     }
