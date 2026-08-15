@@ -68,6 +68,33 @@ public sealed class Paragraph : IParagraph
         return this;
     }
 
+    /// <summary>
+    /// Returns the <c>&lt;a:p&gt;</c> element to write for this paragraph, carrying a run for every
+    /// portion it was given and, failing that, for the text it was given directly.
+    /// </summary>
+    /// <remarks>
+    /// A paragraph built with <c>new Paragraph()</c> is detached: its portions and its text live
+    /// beside an element nothing has written yet. This is the point at which they become markup.
+    /// </remarks>
+    internal XElement ElementForAttaching()
+    {
+        var element = _pElement ??= new XElement(ANs + "p");
+
+        _portions.WriteInto(element);
+
+        if (_text.Length > 0 && !element.Elements(ANs + "r").Any())
+            element.Add(new XElement(ANs + "r", new XElement(ANs + "t", _text)));
+
+        return element;
+    }
+
+    /// <summary>
+    /// Binds this paragraph to the element it was written as, so that later changes to it reach the
+    /// document rather than a copy of it.
+    /// </summary>
+    internal void BindTo(XElement pElement, XElement txBodyElement, SlidePart? slidePart, IBaseSlide? parentSlide) =>
+        InitInternal(pElement, txBodyElement, slidePart, parentSlide);
+
     /// <inheritdoc/>
     public override IPortionCollection Portions => _portions;
 
