@@ -27,6 +27,13 @@ The .NET 9.0 SDK, and nothing else. The library has no package dependencies and 
 test projects pull xunit, `Microsoft.NET.Test.Sdk`, `coverlet.collector`, `FluentAssertions` (unit
 and integration suites) and `DocumentFormat.OpenXml` (conformance suite) from nuget.org.
 
+**One of those is not under an open-source licence.** `FluentAssertions` 8.8.0 ships under the Xceed
+Community License and sets `requireLicenseAcceptance`: free for open-source and non-commercial use,
+paid for commercial use. It is a test-only dependency — it is not referenced by
+`src/Aspose.Slides.Foss` and nothing in the published package touches it — but restoring this
+repository does fetch it, so if you are working here inside a commercial setting, that is the term
+to read. The conformance suite deliberately does not use it; see that project's `README.md`.
+
 Package versions are managed centrally in `Directory.Packages.props`, so a `PackageReference` in a
 project file carries no `Version` attribute — add the version there instead.
 
