@@ -53,8 +53,9 @@ Then reference the project from your own:
 
 Every push, on any branch, whose tests pass produces a `.nupkg` and a symbol `.snupkg` as workflow
 artefacts. Download them from the
-[Actions](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions) tab, put them in
-a folder, and point NuGet at that folder:
+[Actions](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions) tab — GitHub
+hands you a `.zip`, so extract it first; NuGet reads a folder of `.nupkg` files, not a zip of them —
+put the extracted files in a folder, and point NuGet at that folder:
 
 ```xml
 <!-- nuget.config next to your solution -->
@@ -134,6 +135,12 @@ using Aspose.Slides.Foss.Export;    // SaveFormat
 
 `Color` and `PointF` are this library's own types in `Aspose.Slides.Foss.Drawing`; they are not the
 `System.Drawing` types of the same name, and neither namespace is in scope by default.
+
+Those three are this library's own namespaces. The samples also use `Console`, `DateTime`, `File`,
+`FileStream` and `MemoryStream`, which come from `System` and `System.IO`: `<ImplicitUsings>` brings
+both into scope and is on by default in a project from `dotnet new console` — the same default this
+page relies on for `Nullable` above. Turn implicit usings off and you add those two `using` lines
+yourself.
 
 ### Text and formatting
 
