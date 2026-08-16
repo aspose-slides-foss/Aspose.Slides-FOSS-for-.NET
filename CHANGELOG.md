@@ -36,6 +36,9 @@ that used to succeed now raise.**
   it and producing a section that lists nothing.
 - **A section whose start slide precedes the previous section's start is clamped**, not refused, so
   that a reorder in progress cannot throw. A clamped section has no slides.
+- **`Color` compares by component with `==` as well as with `Equals`.** `Color` is a class, and
+  without an equality operator `Color.FromArgb(255, 255, 0, 0) == Color.Red` was `false` while
+  `.Equals` on the same pair was `true`. `==` and `!=` now answer the same as `Equals`.
 
 ### Fixed
 

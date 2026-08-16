@@ -1,7 +1,9 @@
 namespace Aspose.Slides.Foss.Drawing;
 
 /// <summary>
-/// Immutable value type representing an ARGB color.
+/// An immutable ARGB color. This is a reference type, but it has value semantics: two instances
+/// with the same components are equal, and <c>==</c>, <c>!=</c>, <see cref="Equals(object?)"/> and
+/// <see cref="GetHashCode"/> all compare the components rather than the reference.
 /// </summary>
 public sealed class Color
 {
@@ -52,6 +54,24 @@ public sealed class Color
 
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(_a, _r, _g, _b);
+
+    /// <summary>
+    /// Determines whether two colors have the same components. Two <c>null</c> references are
+    /// equal; a <c>null</c> reference is not equal to any color.
+    /// </summary>
+    /// <param name="left">The first color to compare, which may be <c>null</c>.</param>
+    /// <param name="right">The second color to compare, which may be <c>null</c>.</param>
+    /// <returns><c>true</c> if the two are equal; otherwise <c>false</c>.</returns>
+    public static bool operator ==(Color? left, Color? right) =>
+        left is null ? right is null : left.Equals(right);
+
+    /// <summary>
+    /// Determines whether two colors differ in any component.
+    /// </summary>
+    /// <param name="left">The first color to compare, which may be <c>null</c>.</param>
+    /// <param name="right">The second color to compare, which may be <c>null</c>.</param>
+    /// <returns><c>true</c> if the two are not equal; otherwise <c>false</c>.</returns>
+    public static bool operator !=(Color? left, Color? right) => !(left == right);
 
     /// <inheritdoc/>
     public override string ToString() =>
