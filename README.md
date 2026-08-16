@@ -4,6 +4,40 @@ The official open-source .NET library by Aspose.Slides for creating, reading, an
 
 ---
 
+## Requirements
+
+.NET 9.0. The library has no package dependencies and no native ones — it writes the Office Open
+XML package itself, so it needs neither an Office installation nor COM interop, and it runs
+wherever .NET 9 runs.
+
+The CI workflow builds the library and runs the whole test suite on Linux, Windows and macOS, on
+.NET 9. Nothing beyond that is exercised, so nothing beyond that is promised here.
+
+## Installation
+
+The package id is `Aspose.Slides.Foss`. Once a release is on nuget.org:
+
+```bash
+dotnet add package Aspose.Slides.Foss
+```
+
+CI also builds the package on every push and attaches it to the workflow run, so an unreleased
+revision can be installed by downloading the `.nupkg` and adding the folder holding it as a package
+source.
+
+## Building from source
+
+```bash
+git clone https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git
+cd Aspose.Slides-FOSS-for-.NET
+dotnet build --configuration Release
+dotnet test --configuration Release
+```
+
+Warnings are errors in every project, so a build that prints nothing is a build that is clean.
+
+---
+
 ## Quick Start
 
 ```csharp
