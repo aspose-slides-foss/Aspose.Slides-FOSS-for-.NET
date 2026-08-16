@@ -150,6 +150,28 @@ prove it is usable. Test results, the `.nupkg`, the symbol `.snupkg` and two Cyc
 attached to the run as artefacts. If CI is red, the pull request is not ready, including when the
 failure is on a platform you did not use.
 
+## Releasing
+
+There is no publish workflow. Nothing under `.github/workflows/` pushes to nuget.org and no API key
+is stored in this repository, so a release is a deliberate manual act: take the `.nupkg` and the
+matching `.snupkg` off a green run's artefacts and push them yourself.
+
+Bumping `<Version>` in `Directory.Build.props` is one step of that and not the whole of it. Three
+files say, in the present tense, that no package has been published, and `README.md` is packed
+*inside* the package as the page nuget.org renders — so publishing without touching them would put
+"There is no NuGet package yet" at the top of the page for the package that exists.
+
+1. **`Directory.Build.props`** — set `<Version>`. It is the only place a version is written.
+2. **`README.md`** — rewrite **Installation**. `dotnet add package Aspose.Slides.Foss` resolves once
+   a release exists, and the sentence saying it does not is then false. Check the version quoted in
+   the CI-artefact route while you are there.
+3. **`SECURITY.md`** — replace **Supported versions**: the table and the sentence above it both rest
+   on nothing having been released.
+4. **`CHANGELOG.md`** — turn `## [Unreleased]` into a version heading with a date, remove the line
+   saying nothing has been published, and update the link at the foot of the file.
+5. **Rebuild and re-pack after those edits.** The readme inside a `.nupkg` is a copy taken at pack
+   time; a package built before step 2 ships the old page however green its run was.
+
 ## Licence
 
 By contributing you agree that your contribution is licensed under the

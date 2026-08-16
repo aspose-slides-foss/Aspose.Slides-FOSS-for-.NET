@@ -12,7 +12,12 @@
 
     `dotnet pack` reads it, the assembly and file version attributes are generated from it, and the
     CI workflow reads it back out of the file name of the package it just built rather than
-    repeating it. Cutting a release is a one-line edit to this property.
+    repeating it.
+
+    Editing this property is one step of cutting a release and not the whole of it: README.md,
+    SECURITY.md and CHANGELOG.md all currently state that no package has been published, and
+    README.md is packed inside the .nupkg as its nuget.org page. The full list is under "Releasing"
+    in CONTRIBUTING.md.
 
     The scheme is CalVer: <two-digit year>.<month>.<patch>, matching the other language editions of
     this library. The patch component starts at 0 and increments for further releases made inside
