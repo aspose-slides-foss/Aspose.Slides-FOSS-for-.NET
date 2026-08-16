@@ -70,11 +70,22 @@ reporting form:
 
 **<https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/security/advisories/new>**
 
-That form is GitHub's private vulnerability reporting channel, and it is the only
-private channel this repository currently has. It is read by the maintainers and
-by nobody else. Begin your report with the words "Code of Conduct" so that it is
-not triaged as a security issue. If you would prefer a public report, open a
-normal issue.
+That form is GitHub's private vulnerability reporting channel, and it is the
+private channel this repository has. It is read by the maintainers and by nobody
+else. Begin your report with the words "Code of Conduct" so that it is not
+triaged as a security issue.
+
+**If your report is about a maintainer of this repository**, that form is the
+wrong channel — it is read by the people it would be about. Use GitHub's own
+abuse reporting instead:
+
+**<https://github.com/contact/report-abuse>**
+
+It goes to GitHub Support, not to this project, and GitHub can act on conduct in
+this repository without any maintainer being involved.
+
+Reporting publicly, by opening a normal issue, is your choice to make and never
+a requirement; nothing here asks you to describe harassment in public.
 
 All complaints will be reviewed and investigated promptly and fairly. All
 community leaders are obligated to respect the privacy and security of the

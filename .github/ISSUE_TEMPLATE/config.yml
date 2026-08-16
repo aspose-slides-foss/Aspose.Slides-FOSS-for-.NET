@@ -3,6 +3,9 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/security/advisories/new
     about: Report privately. Never open a public issue for a security problem.
+  - name: Code of Conduct report
+    url: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/CODE_OF_CONDUCT.md#enforcement
+    about: How to report conduct privately, including when the report concerns a maintainer.
   - name: A different edition of this library
     url: https://github.com/aspose-slides-foss
     about: The Java, C++ and Python editions have their own repositories and their own issue trackers.
