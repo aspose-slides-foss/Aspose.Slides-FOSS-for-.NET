@@ -51,8 +51,8 @@ Then reference the project from your own:
 
 ### Install the package CI built
 
-Every push whose tests pass produces a `.nupkg` and a symbol `.snupkg` as workflow artefacts.
-Download them from the
+Every push, on any branch, whose tests pass produces a `.nupkg` and a symbol `.snupkg` as workflow
+artefacts. Download them from the
 [Actions](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions) tab, put them in
 a folder, and point NuGet at that folder:
 
@@ -123,6 +123,17 @@ was compiled with nullable enabled and produced zero warnings.
 Every example below was compiled and executed against this revision, and the values quoted after each
 one were read out of the `.pptx` it wrote by an independent ZIP/XML reader — not by asking the
 library to read its own file back.
+
+Three namespaces cover every sample on this page, and each sample below assumes all three:
+
+```csharp
+using Aspose.Slides.Foss;           // Presentation, the I* interfaces, ShapeType, FontData
+using Aspose.Slides.Foss.Drawing;   // Color, PointF
+using Aspose.Slides.Foss.Export;    // SaveFormat
+```
+
+`Color` and `PointF` are this library's own types in `Aspose.Slides.Foss.Drawing`; they are not the
+`System.Drawing` types of the same name, and neither namespace is in scope by default.
 
 ### Text and formatting
 
@@ -274,9 +285,12 @@ inside the file that came out.
   the list), clone, hide (`<p:sld show="0">`), enumerate; masters and layouts are enumerable and a
   master can be cloned.
 - **Sections** — add, append, remove, remove with slides, reorder with slides.
-- **Shapes** — AutoShapes for every one of the 189 `ShapeType` values (each one was written and each
-  produced an `<a:prstGeom>` preset), picture frames, tables, connectors bound to shapes by
-  connection site, `Reorder` for z-order, and adjust values on geometry shapes.
+- **Shapes** — AutoShapes for 187 of the 189 `ShapeType` values: each of the 187 was written into its
+  own file and each produced its own distinct `<a:prstGeom prst="…">`. The two exceptions are
+  `ShapeType.NotDefined` and `ShapeType.Custom`, which have no preset to write; `AddAutoShape`
+  accepts them without complaint and the shape comes out as `prst="rect"`. Also picture frames,
+  tables, connectors bound to shapes by connection site, `Reorder` for z-order, and adjust values on
+  geometry shapes.
 - **Text** — text frames, paragraphs, portions; character formatting (bold, italic, underline,
   strikethrough, size, spacing, caps, latin/east-asian/complex-script/symbol fonts), paragraph
   formatting (alignment, indent, margins, spacing, symbol and numbered bullets), text-frame
@@ -315,7 +329,7 @@ not contain today.
 |---|---|
 | Charts | `IShapeCollection.AddChart` does not exist |
 | SmartArt, OLE objects, video, audio | no `AddSmartArt` / `AddOleObjectFrame` / `AddVideoFrame` / `AddAudioFrame` |
-| Group shapes | no `AddGroupShape`; the public `GroupShape` type has no members |
+| Group shapes | no `AddGroupShape`. `IGroupShape` is declared but nothing implements it, and the public `GroupShape` class adds nothing to `Shape` — so no shape can hold child shapes |
 | Animations and slide transitions | no `ISlide.Timeline`, no `ISlide.SlideShowTransition` |
 | Hyperlinks | no `HyperlinkClick` on a shape or on a text portion |
 | Slide backgrounds | no `ISlide.Background` |
