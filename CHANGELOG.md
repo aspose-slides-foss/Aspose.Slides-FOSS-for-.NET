@@ -83,7 +83,10 @@ that used to succeed now raise.**
   Link and a deterministic build.
 - **Continuous integration** — build and test on Linux, Windows and macOS; pack the library, install
   the produced package into a throwaway project and run it; publish the package, the symbols, the
-  test results and two CycloneDX SBOMs as run artefacts.
+  test results and two CycloneDX SBOMs as run artefacts. The run also reads those test results back
+  and fails if a suite produced none, or ran fewer tests than the count recorded in
+  `CONTRIBUTING.md`, so a suite dropped from the solution or skipped cannot leave a green run behind
+  it.
 - **Community documentation** — this changelog, `CONTRIBUTING.md`, `SECURITY.md`,
   `CODE_OF_CONDUCT.md`, issue forms and a pull request template, and a rewritten `README.md` that
   states what the library cannot do as plainly as what it can.

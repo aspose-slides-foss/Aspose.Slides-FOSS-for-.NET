@@ -58,7 +58,7 @@ Three suites run, and all three must be green:
 
 | Project | Tests | What it covers |
 |---|---|---|
-| `tests/Aspose.Slides.Foss.Tests` | 1,951 | unit tests of the object model |
+| `tests/Aspose.Slides.Foss.Tests` | 1,954 | unit tests of the object model |
 | `tests/Aspose.Slides.Foss.IntegrationTests` | 97 | end-to-end use of the public API |
 | `tests/Aspose.Slides.Foss.ConformanceTests` | 80 | assertions against the produced `.pptx` package |
 
@@ -70,6 +70,12 @@ dotnet test tests/Aspose.Slides.Foss.ConformanceTests --configuration Release
 
 Test the whole solution rather than naming projects one at a time. Naming them means a suite added
 later is silently never run.
+
+The three counts above are not decoration: CI reads them back out of the `.trx` files after the test
+run and fails if a suite produced no results at all, if anything did not pass, or if fewer tests
+passed than the number in the table. They are floors — adding tests passes, so raise a number here
+only when you want the new count guaranteed. This is what stops a suite dropped from
+`Aspose.Slides.Foss.sln`, or skipped, from leaving a green run behind it.
 
 ### The conformance suite
 

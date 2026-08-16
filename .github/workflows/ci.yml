@@ -72,7 +72,8 @@ jobs:
 
       # The whole solution is tested in one command on purpose. Naming the test projects one by one
       # means a suite added later is silently never run; asking for the solution means a new suite
-      # is picked up the day it is added.
+      # is picked up the day it is added. It does not protect against the opposite — a suite
+      # dropped from the solution, or skipped — which is what the step after this one checks.
       #
       # That matters most for the conformance suite, which asserts on the produced .pptx package —
       # its XML, its relationships, its content types and its schema validity — rather than on
@@ -89,6 +90,56 @@ jobs:
           --configuration Release
           --verbosity normal
           --logger trx
+
+      # The step above reports on the suites it found. It cannot report a suite that was not there
+      # to be found: take the conformance project out of Aspose.Slides.Foss.sln, or put `Skip` on
+      # its classes, and every step so far stays green while nothing asserts on a produced package
+      # any more. Uploading the results does not close that either — it only proves some .trx
+      # exists. So the .trx files are read back here, and each suite must be present, must have
+      # failed nothing, and must have run at least the number of tests recorded in CONTRIBUTING.md.
+      # Those numbers are floors: adding tests is expected and passes, losing them is what fails.
+      #
+      # pwsh rather than bash because this job also runs on Windows, and it is installed on all
+      # three of GitHub's runner images.
+      - name: Check that every suite ran
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $floors = [ordered]@{
+            'Aspose.Slides.Foss.Tests'            = 1954
+            'Aspose.Slides.Foss.IntegrationTests' = 97
+            'Aspose.Slides.Foss.ConformanceTests' = 80
+          }
+          $problems = @()
+          foreach ($suite in $floors.Keys) {
+            $floor = $floors[$suite]
+            $dir = Join-Path 'tests' (Join-Path $suite 'TestResults')
+            $trx = $null
+            if (Test-Path -LiteralPath $dir) {
+              $trx = Get-ChildItem -LiteralPath $dir -Filter '*.trx' |
+                Sort-Object LastWriteTime | Select-Object -Last 1
+            }
+            if ($null -eq $trx) {
+              $problems += "$suite : no .trx under $dir - the suite did not run at all"
+              continue
+            }
+            $counters = ([xml](Get-Content -Raw -LiteralPath $trx.FullName)).TestRun.ResultSummary.Counters
+            $passed = [int]$counters.passed
+            $notPassed = [int]$counters.failed + [int]$counters.error + [int]$counters.timeout + [int]$counters.aborted
+            $notRun = [int]$counters.total - [int]$counters.executed
+            Write-Host ('{0,-36} passed {1,5}   not passed {2,4}   not executed {3,4}   floor {4}' -f $suite, $passed, $notPassed, $notRun, $floor)
+            if ($notPassed -gt 0) {
+              $problems += "$suite : $notPassed test(s) did not pass"
+            }
+            if ($passed -lt $floor) {
+              $problems += "$suite : $passed tests passed, fewer than the $floor recorded in CONTRIBUTING.md"
+            }
+          }
+          if ($problems.Count -gt 0) {
+            foreach ($problem in $problems) { Write-Host "FAILED  $problem" }
+            exit 1
+          }
+          Write-Host 'Every suite ran, in full.'
 
       - name: Upload test results
         # Test results are most wanted exactly when the step above failed.
