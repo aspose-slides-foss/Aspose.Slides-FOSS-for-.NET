@@ -34,7 +34,7 @@ body:
       description: >
         The commit SHA you built, or the package version if you installed one. `git rev-parse HEAD`
         prints the SHA.
-      placeholder: "e.g. 5ac2f06, or 26.8.0"
+      placeholder: "e.g. 0a1b2c3, or 26.8.0"
     validations:
       required: true
 
