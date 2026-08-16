@@ -22,7 +22,7 @@ produce PDF, HTML or images, and the things it cannot do are listed in full unde
 | Target framework | `net9.0` |
 | Package dependencies | none — the library declares no `PackageReference` |
 | Native dependencies | none — no `DllImport`, no `LibraryImport`, no `unsafe` code |
-| Platforms | Linux, Windows and macOS, all built and tested on every push |
+| Platforms | the CI workflow builds and runs every test on `ubuntu-latest`, `windows-latest` and `macos-latest` |
 
 A `net9.0` assembly also loads on later .NET runtimes by roll-forward, but CI does not exercise
 that, so this file does not promise it.
