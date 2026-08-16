@@ -95,7 +95,8 @@ that used to succeed now raise.**
 
 Not defects, and not scheduled: charts, SmartArt, OLE objects, video and audio, group shapes,
 animations, slide transitions, hyperlinks, slide backgrounds, themes, an API for the slide size,
-threaded comments, encryption, macros, digital signatures, and any form of rendering or conversion.
+adding or cloning a layout, threaded comments, encryption, macros, digital signatures, and any form
+of rendering or conversion.
 The README lists these in full, with the API member that is missing for each.
 
 [Unreleased]: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/commits/main

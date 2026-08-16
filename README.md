@@ -331,10 +331,11 @@ not contain today.
 | SmartArt, OLE objects, video, audio | no `AddSmartArt` / `AddOleObjectFrame` / `AddVideoFrame` / `AddAudioFrame` |
 | Group shapes | no `AddGroupShape`. `IGroupShape` is declared but nothing implements it, and the public `GroupShape` class adds nothing to `Shape` — so no shape can hold child shapes |
 | Animations and slide transitions | no `ISlide.Timeline`, no `ISlide.SlideShowTransition` |
-| Hyperlinks | no `HyperlinkClick` on a shape or on a text portion |
+| Hyperlinks | no `HyperlinkClick` on a shape or on a text portion. `IHyperlinkContainer` is declared and many shape types implement it, but it has no members at all — implementing it gives you nothing |
 | Slide backgrounds | no `ISlide.Background` |
 | Themes | no `IPresentation.MasterTheme` |
 | Slide size | no `IPresentation.SlideSize` — a new deck is 4:3 and cannot be changed |
+| Adding or cloning a layout | `ILayoutSlideCollection` declares an indexer, `GetByType` and two collection views — nothing that adds or clones. A new deck has exactly one layout and its `LayoutType` is `Custom`, so `GetByType` answers only for `Custom` and returns `null` for every other value. A Title or Title-and-Content layout can only come from a deck you opened |
 | Threaded comments | replies are held in memory; no `ppt/threadedComments/` part is written |
 | Encryption and protection | no `IPresentation.Protect` |
 | Rendering and conversion | no PDF, HTML, SVG, image or text export of any kind |
