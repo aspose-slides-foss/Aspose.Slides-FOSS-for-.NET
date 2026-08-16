@@ -1,40 +1,242 @@
 name: CI
 
+# Every action below is pinned to the commit SHA of a release rather than to its tag. A tag is a
+# mutable pointer: whoever controls the action's repository can move `v7` to different code at any
+# time, and that code then runs inside this workflow with this workflow's token and this
+# repository's checkout. A SHA cannot be moved. The tag each SHA corresponded to when it was pinned
+# is written next to it so the pin can be read and bumped by a human.
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# The workflow only reads the repository. Publishing is a separate, deliberate act; nothing here
+# needs write access to anything.
+permissions:
+  contents: read
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
-  build-and-test:
+  test:
+    name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      # One platform failing is a fact worth having about the other two, so let them finish.
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # The library targets net9.0 and has no platform-specific code, but "no platform-specific
+        # code" is a claim, and writing a package on a case-sensitive file system with forward
+        # slashes is exactly where such a claim breaks. All three platforms GitHub hosts are run.
+        #
+        # There is one entry for the runtime, because the project declares one target framework.
+        # A net9.0 assembly also loads on later runtimes by roll-forward, but this workflow does
+        # not exercise that, and so the README does not promise it.
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # Pinned to the feature band the project targets. Nothing here depends on a newer SDK,
+          # and a floating SDK turns an unrelated toolchain change into a red build on this repo.
+          dotnet-version: '9.0.x'
+        # No `cache:` — that input needs NuGet lock files, which this repository does not use.
+
+      - name: Restore
+        run: dotnet restore
+
+      # `TreatWarningsAsErrors` is set for every project in Directory.Build.props, so a warning
+      # already fails a local build. `-warnaserror` is passed as well to cover warnings raised by
+      # MSBuild and NuGet themselves, which that property does not reach.
+      - name: Build
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      # The whole solution is tested in one command on purpose. Naming the test projects one by one
+      # means a suite added later is silently never run; asking for the solution means a new suite
+      # is picked up the day it is added.
+      #
+      # That matters most for the conformance suite, which asserts on the produced .pptx package —
+      # its XML, its relationships, its content types and its schema validity — rather than on
+      # values read back through the library. A test that calls the library to check the library
+      # cannot see a writer defect at all.
+      #
+      # No --results-directory: each test project then writes its .trx under its own
+      # TestResults folder. Pointed at one shared directory the three projects race for the same
+      # generated file name, and the run that loses it is simply gone from the artefact.
+      - name: Test
+        run: >
+          dotnet test Aspose.Slides.Foss.sln
+          --no-build
+          --configuration Release
+          --verbosity normal
+          --logger trx
+
+      - name: Upload test results
+        # Test results are most wanted exactly when the step above failed.
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults/*.trx'
+          if-no-files-found: error
+
+  package:
+    name: Package
+    # A package built from a revision that fails its own tests is not worth downloading.
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '9.0.x'
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release -warnaserror
 
-      - name: Run unit tests
-        run: dotnet test tests/Aspose.Slides.Foss.Tests --no-build --configuration Release --verbosity normal
+      # ContinuousIntegrationBuild is switched on by the GITHUB_ACTIONS environment variable, which
+      # is set for every step here. It normalises source paths in the PDB so that Source Link
+      # resolves them against this repository rather than against a build agent's directory.
+      - name: Pack
+        run: >
+          dotnet pack src/Aspose.Slides.Foss
+          --no-build
+          --configuration Release
+          --output ${{ github.workspace }}/artifacts/package
 
-      - name: Run integration tests
-        run: dotnet test tests/Aspose.Slides.Foss.IntegrationTests --no-build --configuration Release --verbosity normal
+      # The version is defined once, in Directory.Build.props. It is read back off the file that
+      # was actually produced instead of being repeated here, so this workflow cannot disagree with
+      # the package it just built.
+      - name: Read the version off the package
+        id: version
+        run: |
+          set -euo pipefail
+          nupkg=$(ls artifacts/package/*.nupkg)
+          version=$(basename "$nupkg" .nupkg)
+          version=${version#Aspose.Slides.Foss.}
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Packed version $version"
 
-      # Conformance tests assert on the produced .pptx package — its XML, its relationships, its
-      # content types and its schema validity — rather than on values read back through the library.
-      # A test that calls the library to check the library cannot see a writer defect at all.
-      - name: Run conformance tests
-        run: dotnet test tests/Aspose.Slides.Foss.ConformanceTests --no-build --configuration Release --verbosity normal
+      # Printed into the log so a reviewer can see what shipped without downloading anything, and
+      # so a file that quietly stopped being packed — the readme, the licence, the XML docs — shows
+      # up as a diff in the log of two runs.
+      - name: List what is inside the package
+        run: |
+          set -euo pipefail
+          for pkg in artifacts/package/*.nupkg artifacts/package/*.snupkg; do
+            echo "== $pkg"
+            unzip -l "$pkg"
+          done
+
+      # Everything above this point tests the project. This tests the package: a throwaway console
+      # app that resolves Aspose.Slides.Foss from the folder just packed, writes a presentation and
+      # reads it back. A package can build cleanly and still be unusable — an assembly under a path
+      # no consumer resolves, a target framework nothing matches — and only restoring it from a
+      # feed shows that.
+      - name: Consume the package from a throwaway project
+        # The version reaches the script through the environment rather than by being pasted into
+        # it. It comes from a file name, and a file name comes from a property a pull request can
+        # edit; interpolating one straight into a shell is how that becomes command execution.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          dotnet new console --output . > /dev/null
+          cat > nuget.config <<XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="built-here" value="$GITHUB_WORKSPACE/artifacts/package" />
+            </packageSources>
+          </configuration>
+          XML
+          cat > Program.cs <<'CSHARP'
+          using Aspose.Slides.Foss;
+          using Aspose.Slides.Foss.Export;
+
+          using (var prs = new Presentation())
+          {
+              var shape = prs.Slides[0].Shapes.AddAutoShape(ShapeType.Rectangle, 10, 10, 200, 60);
+              shape.AddTextFrame("packaged");
+              prs.Save("smoke.pptx", SaveFormat.Pptx);
+          }
+
+          var written = new FileInfo("smoke.pptx").Length;
+          if (written == 0)
+          {
+              throw new Exception("the package wrote an empty file");
+          }
+
+          using var reopened = new Presentation("smoke.pptx");
+          Console.WriteLine($"wrote and reopened smoke.pptx: {written} bytes, {reopened.Slides.Count} slide(s), {reopened.Slides[0].Shapes.Count} shape(s)");
+          CSHARP
+          dotnet add package Aspose.Slides.Foss --version "$VERSION"
+          dotnet run --configuration Release
+
+      # A machine-readable dependency list, in CycloneDX form. Two of them: one for the package
+      # that ships, whose dependency list is the thing a consumer inherits, and one for the whole
+      # solution, which additionally covers the test-only packages that go into deciding whether
+      # this revision is good. The generator is a local tool pinned by .config/dotnet-tools.json.
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Generate SBOMs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          dotnet dotnet-CycloneDX src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj \
+            --output "$GITHUB_WORKSPACE/artifacts/sbom" \
+            --filename Aspose.Slides.Foss.cdx.json \
+            --output-format Json \
+            --set-name Aspose.Slides.Foss \
+            --set-version "$VERSION" \
+            --set-type Library \
+            --exclude-test-projects
+          dotnet dotnet-CycloneDX Aspose.Slides.Foss.sln \
+            --output "$GITHUB_WORKSPACE/artifacts/sbom" \
+            --filename solution.cdx.json \
+            --output-format Json \
+            --set-name Aspose.Slides.Foss.sln \
+            --set-version "$VERSION"
+
+      - name: Upload the package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nuget-package-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/package/*.nupkg
+            artifacts/package/*.snupkg
+          if-no-files-found: error
+
+      - name: Upload the SBOMs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ steps.version.outputs.version }}
+          path: artifacts/sbom/*.cdx.json
+          if-no-files-found: error
