@@ -7,8 +7,12 @@ name: CI
 # is written next to it so the pin can be read and bumped by a human.
 
 on:
+  # The push trigger is deliberately unfiltered: work happens on branches before it becomes a pull
+  # request, and a workflow that only runs on `main` cannot tell you whether a branch is good until
+  # after it has been merged. Every branch builds, so the answer arrives while the change is still
+  # being written. `pull_request` stays scoped to `main`, which is the branch a merge would change.
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
   workflow_dispatch:
