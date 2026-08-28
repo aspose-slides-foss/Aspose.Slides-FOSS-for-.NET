@@ -11,6 +11,7 @@ public sealed class PortionCollection : ISlideComponent, IPortionCollection, IEn
 {
     private static readonly XNamespace ANs = "http://schemas.openxmlformats.org/drawingml/2006/main";
     private static readonly XName AR = ANs + "r";
+    private static readonly XName AT = ANs + "t";
 
     private readonly List<IPortion> _portions = [];
     private XElement? _pElement;
@@ -65,6 +66,32 @@ public sealed class PortionCollection : ISlideComponent, IPortionCollection, IEn
         }
 
         return portions;
+    }
+
+    /// <summary>
+    /// Writes the portions held in this collection into <paramref name="pElement"/> as
+    /// <c>&lt;a:r&gt;</c> children, skipping any that are already there.
+    /// </summary>
+    /// <remarks>
+    /// Called when the paragraph that owns this collection joins a text body. Until then a portion
+    /// added to a detached paragraph has nowhere to be written to.
+    /// </remarks>
+    internal void WriteInto(XElement pElement)
+    {
+        foreach (var portion in _portions)
+        {
+            if (portion is Portion concrete)
+            {
+                if (concrete.RElement.Parent is null)
+                    pElement.Add(concrete.RElement);
+                else if (concrete.RElement.Parent != pElement)
+                    pElement.Add(new XElement(concrete.RElement));
+            }
+            else
+            {
+                pElement.Add(new XElement(AR, new XElement(AT, portion.Text ?? string.Empty)));
+            }
+        }
     }
 
     /// <inheritdoc/>

@@ -10,16 +10,14 @@ namespace Aspose.Slides.Foss;
 public sealed partial class ImageCollection : IImageCollection, IEnumerable<IPPImage>
 {
     private OpcPackage? _package;
-    private ContentTypesManager? _contentTypesManager;
     private List<PPImage>? _images;
 
     /// <summary>
     /// Initializes internal state by scanning the package for existing media parts.
     /// </summary>
-    internal void InitInternal(OpcPackage package, ContentTypesManager contentTypesManager)
+    internal void InitInternal(OpcPackage package)
     {
         _package = package;
-        _contentTypesManager = contentTypesManager;
         _images = new List<PPImage>();
 
         var partNames = package.GetSortedPartNames()
@@ -120,7 +118,11 @@ public sealed partial class ImageCollection : IImageCollection, IEnumerable<IPPI
         var partName = $"ppt/media/image{nextNumber}.{extension}";
 
         _package.SetPart(partName, data);
-        _contentTypesManager?.RegisterDefaultContentType(extension, contentType);
+
+        // Without a Default for this extension the media part resolves no content type at all, and
+        // per ISO/IEC 29500-2 10.1.2 the content type is the part's identity: PowerPoint rejects the
+        // package. This has to be written even when nothing ends up referencing the image.
+        OpcRegistration.AddContentTypeDefault(_package, extension, contentType);
 
         var ppImage = new PPImage();
         ppImage.InitInternal(_package, partName, data, contentType);

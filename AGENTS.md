@@ -4,7 +4,8 @@ You are working with `Aspose.Slides.Foss`, the official open-source .NET library
 
 ## Getting Started
 
-Requires .NET 9.0+. No additional runtime dependencies.
+Requires .NET 9.0 — the framework the library targets and the only one it is tested on. No package
+dependencies and no native ones.
 
 ```bash
 git clone https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git
@@ -16,8 +17,12 @@ dotnet build
 
 - **`Presentation`** is the root object. It owns slides, masters, layouts, images, document properties, and comments.
 - Always wrap `Presentation` in a `using` statement to ensure proper cleanup.
-- Save with `prs.Save("out.pptx", SaveFormat.Pptx)`. Only PPTX output is supported.
-- Unknown XML parts are preserved verbatim on save — round-tripping is safe.
+- Save with `prs.Save("out.pptx", SaveFormat.Pptx)`. `SaveFormat.Ppsx` and `SaveFormat.Potx` are written too; every other value raises `NotSupportedException`.
+- Give the file the extension of the format you ask for — `.pptx`, `.ppsx`, `.potx`. PowerPoint refuses a file whose name and content type disagree.
+- Parts this library has no model for are carried through a load and a save unchanged. A save is not
+  a byte-for-byte copy of the whole package, though: `[Content_Types].xml`, `docProps/app.xml`,
+  `docProps/core.xml` and `ppt/presentation.xml` are rebuilt. See "What 'round-trip' does and does
+  not mean" in `README.md` for the measured figures.
 
 ## Import Pattern
 
@@ -191,7 +196,7 @@ src/
 ## Do
 
 - Always wrap `Presentation` in a `using` statement
-- Use `SaveFormat.Pptx` when saving — it is the only supported format
+- Use `SaveFormat.Pptx` when saving, unless you want a slideshow (`Ppsx`) or a template (`Potx`) — those three are what `Save` writes
 - Use `Color.FromArgb(a, r, g, b)` or named constants like `Color.Red`, `Color.Blue`
 - Access slides via `prs.Slides[index]` — slides are 0-indexed
 - Use `NullableBool` enum (`NullableBool.False`, `NullableBool.True`, `NullableBool.NotDefined`) for boolean formatting properties like `FontBold`
@@ -200,19 +205,27 @@ src/
 ## Don't
 
 - Don't reference `Aspose.Slides.Foss.Internal` — it is a private implementation detail
-- Don't attempt PDF, HTML, SVG, or image export — only PPTX is supported
-- Don't use charts, SmartArt, animations, or VBA — they are not yet implemented
+- Don't attempt PDF, HTML, SVG, or image export — this library does not render or convert, and
+  `Save` writes only the three OOXML presentation packages `Pptx`, `Ppsx` and `Potx`
+- Don't use charts, SmartArt, animations, or VBA — they are not in the API
 - Don't modify the public API class signatures — they are fixed
 
 ## Limitations
 
-Not yet implemented:
+These are absences in the API today, not a schedule. **The complete list, with the missing API
+member named for each, is the "What it cannot do" section of `README.md`** — read it there rather
+than from the summary below, which exists only so that this file is not silent about them:
 
-- Charts, SmartArt, OLE objects, mathematical text
-- Animations and slide transitions
-- Export to PDF, HTML, SVG, or images
-- VBA macros, digital signatures
-- Hyperlinks and action settings
+- Charts, SmartArt, OLE objects, video and audio
+- Group shapes, animations, slide transitions, hyperlinks
+- Slide backgrounds, themes, and any API for the slide size (a new deck is 4:3 and stays 4:3)
+- Adding or cloning a layout — a new deck has one layout and no way to add another
+- Threaded comments; replies live in memory and the file carries the classic comment list
+- Encryption and protection, VBA macros, digital signatures
+- Rendering and conversion of any kind — no PDF, HTML, SVG, image or text export
+
+`Save` writes `SaveFormat.Pptx`, `SaveFormat.Ppsx` and `SaveFormat.Potx`; every other
+value of the enum raises `NotSupportedException`.
 
 ## Links
 

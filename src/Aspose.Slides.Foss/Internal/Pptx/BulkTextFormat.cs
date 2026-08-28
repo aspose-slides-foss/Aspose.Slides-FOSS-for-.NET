@@ -4,7 +4,8 @@ namespace Aspose.Slides.Foss.Internal.Pptx;
 
 /// <summary>
 /// Helper for applying bulk text formatting to collections of cells.
-/// Implements the logic behind <see cref="IBulkTextFormattable.SetTextFormat"/>
+/// Implements the logic behind the <see cref="IBulkTextFormattable"/> overloads of
+/// <c>SetTextFormat</c>
 /// for Table, Row, and Column classes.
 /// </summary>
 internal static class BulkTextFormat

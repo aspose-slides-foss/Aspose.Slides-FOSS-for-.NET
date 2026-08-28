@@ -30,19 +30,26 @@ internal sealed class CommentData
         set => Elem.SetAttributeValue("dt", value);
     }
 
+    /// <summary>
+    /// The <c>idx</c> of the comment this one replies to, held in memory only.
+    /// </summary>
+    /// <remarks>
+    /// See <see cref="CommentsPart.ParentMarkerAttribute"/>: this is not part of CT_Comment and is
+    /// removed when the comments part is written.
+    /// </remarks>
     internal int? ParentCmId
     {
         get
         {
-            var val = Elem.Attribute("parentCmId")?.Value;
+            var val = Elem.Attribute(CommentsPart.ParentMarkerAttribute)?.Value;
             return val is not null ? int.Parse(val) : null;
         }
         set
         {
             if (value is null)
-                Elem.Attribute("parentCmId")?.Remove();
+                Elem.Attribute(CommentsPart.ParentMarkerAttribute)?.Remove();
             else
-                Elem.SetAttributeValue("parentCmId", value.Value);
+                Elem.SetAttributeValue(CommentsPart.ParentMarkerAttribute, value.Value);
         }
     }
 

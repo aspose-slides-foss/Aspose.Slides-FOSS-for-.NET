@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Aspose.Slides.Foss.Export;
 using Aspose.Slides.Foss.Internal;
+using Aspose.Slides.Foss.Internal.Export;
 
 namespace Aspose.Slides.Foss;
 
@@ -15,6 +16,7 @@ public sealed class Presentation : IPresentation, IDisposable
 
     private OpcPackage? _opcPackage;
     private PresentationPart? _presentationPart;
+    private bool _disposed;
     private SourceFormat _sourceFormat = SourceFormat.Pptx;
     private DateTime _currentDateTime = DateTime.Now;
     private int _firstSlideNumber = 1;
@@ -107,6 +109,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_slides is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -122,6 +125,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_notesSize is null)
             {
                 _notesSize = new NotesSize();
@@ -136,6 +140,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_layoutSlidesCollection is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -152,6 +157,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_mastersCollection is null)
             {
                 EnsureLayoutSlidesParsed();
@@ -163,13 +169,26 @@ public sealed class Presentation : IPresentation, IDisposable
     }
 
     /// <inheritdoc />
-    public override ISectionCollection Sections => _sections ??= new SectionCollection();
+    public override ISectionCollection Sections
+    {
+        get
+        {
+            ThrowIfDisposed();
+            if (_sections is null)
+            {
+                _sections = new SectionCollection();
+                _sections.InitInternal(this, _presentationPart!);
+            }
+            return _sections;
+        }
+    }
 
     /// <inheritdoc />
     public override ICommentAuthorCollection CommentAuthors
     {
         get
         {
+            ThrowIfDisposed();
             if (_commentAuthors is null)
             {
                 _commentAuthorsPart = LoadCommentAuthorsPart(_opcPackage!);
@@ -185,6 +204,7 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_documentProperties is null)
             {
                 _documentProperties = new DocumentProperties();
@@ -199,10 +219,11 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         get
         {
+            ThrowIfDisposed();
             if (_imagesCollection is null)
             {
                 _imagesCollection = new ImageCollection();
-                _imagesCollection.InitInternal(_opcPackage!, new ContentTypesManager());
+                _imagesCollection.InitInternal(_opcPackage!);
             }
             return _imagesCollection;
         }
@@ -214,9 +235,14 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override int FirstSlideNumber
     {
-        get => _firstSlideNumber;
+        get
+        {
+            ThrowIfDisposed();
+            return _firstSlideNumber;
+        }
         set
         {
+            ThrowIfDisposed();
             _firstSlideNumber = value;
             _presentationPart?.SetFirstSlideNumber(value);
         }
@@ -260,19 +286,25 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, SaveFormat format)
     {
-        using var stream = File.Create(fname);
-        Save(stream, format);
+        WriteToFile(fname, stream => Save(stream, format));
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, SaveFormat format)
     {
-        _presentationPart?.Flush();
-        _documentProperties?.Save();
-        FlushComments();
-        FlushNotesSlides();
-        FlushSlides();
-        _opcPackage?.SaveToStream(stream);
+        ThrowIfDisposed();
+
+        // Refuse a format that cannot be written before doing any work for it.
+        SaveFormatSupport.MainPartContentTypeFor(format);
+
+        FlushBeforeSave();
+
+        var package = RequirePackage();
+
+        // The requested format decides the content type of the main part, which is what identifies
+        // the package to a reader. Unsupported formats raise here rather than write a presentation.
+        SaveFormatSupport.ApplyTo(package, format);
+        package.SaveToStream(stream);
     }
 
     /// <inheritdoc />
@@ -290,31 +322,134 @@ public sealed class Presentation : IPresentation, IDisposable
     /// <inheritdoc />
     public override void Save(string fname, int[] slides, SaveFormat format)
     {
-        Save(fname, format);
+        WriteToFile(fname, stream => Save(stream, slides, format));
     }
 
     /// <inheritdoc />
     public override void Save(string fname, int[] slides, SaveFormat format, ISaveOptions options)
     {
-        Save(fname, format);
+        Save(fname, slides, format);
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, int[] slides, SaveFormat format)
     {
-        Save(stream, format);
+        ThrowIfDisposed();
+        SaveFormatSupport.MainPartContentTypeFor(format);
+        ArgumentNullException.ThrowIfNull(slides);
+
+        FlushBeforeSave();
+
+        var subset = BuildSubsetPackage(RequirePackage(), slides);
+
+        SaveFormatSupport.ApplyTo(subset, format);
+        subset.SaveToStream(stream);
     }
 
     /// <inheritdoc />
     public override void Save(Stream stream, int[] slides, SaveFormat format, ISaveOptions options)
     {
-        Save(stream, format);
+        Save(stream, slides, format);
     }
 
     /// <inheritdoc />
     public override void Save(ISaveOptions options)
     {
         throw new InvalidOperationException("A file path or stream is required. Use Save(string, SaveFormat) or Save(Stream, SaveFormat) instead.");
+    }
+
+    /// <summary>
+    /// Serializes to a buffer first and only then replaces the file at <paramref name="fname"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>File.Create</c> truncates whatever is already at the path, and it did so before this class
+    /// knew whether it had anything to write. Any failure after that point - a format that cannot be
+    /// written, a disposed presentation, a slide index out of range - left the caller with a 0-byte
+    /// file where their document had been, and PowerPoint opens a 0-byte file as an empty deck
+    /// rather than reporting damage. A save that cannot succeed must leave the target alone.
+    /// </remarks>
+    private static void WriteToFile(string fname, Action<Stream> write)
+    {
+        using var buffer = new MemoryStream();
+        write(buffer);
+
+        using var file = File.Create(fname);
+        buffer.Position = 0;
+        buffer.CopyTo(file);
+    }
+
+    /// <summary>
+    /// Writes everything held in memory back into the package, so that what is about to be
+    /// serialized is what the caller built.
+    /// </summary>
+    private void FlushBeforeSave()
+    {
+        // Sections are written into presentation.xml, so they go in before it is serialized.
+        _sections?.Flush();
+        _presentationPart?.Flush();
+        FlushComments();
+        FlushNotesSlides();
+        FlushSlides();
+
+        // docProps describes the package, so it is measured last, once everything else is in it.
+        RefreshExtendedProperties();
+        _documentProperties?.Save();
+    }
+
+    /// <summary>
+    /// Recomputes what <c>docProps/app.xml</c> reports about this deck.
+    /// </summary>
+    private void RefreshExtendedProperties()
+    {
+        if (_opcPackage is null)
+            return;
+
+        int hidden = SlidesInternal.Count(slide => slide.Hidden);
+        var statistics = DeckStatistics.Collect(_opcPackage, hidden);
+
+        ((DocumentProperties)DocumentProperties).RefreshDerivedProperties(statistics);
+    }
+
+    /// <summary>
+    /// Builds a copy of the package carrying only the requested slides.
+    /// </summary>
+    /// <param name="source">The package to copy.</param>
+    /// <param name="slides">Zero-based indices of the slides to keep, in any order.</param>
+    /// <returns>A package independent of this presentation's own.</returns>
+    /// <remarks>
+    /// The slides that are kept stay in document order, and their parts keep the names they already
+    /// had: <c>Save(path, [1], …)</c> writes a one-slide deck whose slide is
+    /// <c>ppt/slides/slide2.xml</c>. Part names carry no meaning to a reader — the
+    /// <c>&lt;p:sldIdLst&gt;</c> order does — and renaming them would invalidate every relationship
+    /// that already points at them.
+    /// </remarks>
+    private static OpcPackage BuildSubsetPackage(OpcPackage source, int[] slides)
+    {
+        var subset = source.Clone();
+        var subsetPart = PresentationPart.CreateFromPackage(subset);
+
+        var slideParts = PackageSlides.ListSlideParts(subsetPart);
+
+        var keep = new HashSet<int>();
+        foreach (var index in slides)
+        {
+            if (index < 0 || index >= slideParts.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slides),
+                    $"Slide index {index} is outside the presentation, which has " +
+                    $"{slideParts.Count} slide(s).");
+            }
+            keep.Add(index);
+        }
+
+        for (int i = 0; i < slideParts.Count; i++)
+        {
+            if (!keep.Contains(i))
+                PackageSlides.RemoveSlide(subset, subsetPart, slideParts[i]);
+        }
+
+        subsetPart.Flush();
+        return subset;
     }
 
     // ── IDisposable ───────────────────────────────────────────
@@ -324,6 +459,7 @@ public sealed class Presentation : IPresentation, IDisposable
     /// </summary>
     public void Dispose()
     {
+        _disposed = true;
         _opcPackage = null;
         _presentationPart = null;
         _slides = null;
@@ -338,6 +474,24 @@ public sealed class Presentation : IPresentation, IDisposable
         _masterSlidesMap = null;
         _layoutSlidesMap = null;
     }
+
+    /// <summary>
+    /// Raises <see cref="ObjectDisposedException"/> once <see cref="Dispose"/> has run.
+    /// </summary>
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    /// <summary>
+    /// Returns the package to save, refusing the save when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Every constructor assigns a package, so this cannot happen today. It raises rather than
+    /// returns quietly because returning quietly is the shape of the defect that cost a caller
+    /// their file: a save that writes nothing to the stream and reports success, which through
+    /// <see cref="WriteToFile"/> replaces the target with 0 bytes. Silence is the one behaviour a
+    /// save must never have.
+    /// </remarks>
+    private OpcPackage RequirePackage() =>
+        _opcPackage ?? throw new InvalidOperationException("This presentation has no package to save.");
 
     // ── Private initialization ────────────────────────────────
 
@@ -522,10 +676,20 @@ public sealed class Presentation : IPresentation, IDisposable
     {
         foreach (var slide in SlidesInternal)
         {
-            if (slide is Slide s)
-            {
-                s.GetSlidePartInternal()?.Save();
-            }
+            if (slide is not Slide s)
+                continue;
+
+            var slidePart = s.GetSlidePartInternal();
+            if (slidePart is null)
+                continue;
+
+            // Deferred image references are resolved over the whole slide, not just its paragraphs:
+            // a blip in a shape's fill never passes through the text path, and an unresolved marker
+            // attribute would otherwise be written into the package.
+            if (slidePart.Element is not null)
+                Picture.FlushPendingBlipImages(slidePart.Element, slidePart, s);
+
+            slidePart.Save();
         }
     }
 

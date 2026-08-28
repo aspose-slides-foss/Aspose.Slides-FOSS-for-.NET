@@ -176,6 +176,32 @@ public sealed class ColorTests
     }
 
     [Fact]
+    public void EqualityOperator_SameComponents_ReturnsTrue()
+    {
+        var red = Color.FromArgb(255, 255, 0, 0);
+
+        (red == Color.Red).Should().BeTrue();
+        (red != Color.Red).Should().BeFalse();
+    }
+
+    [Fact]
+    public void EqualityOperator_DifferentComponents_ReturnsFalse()
+    {
+        (Color.Red == Color.Blue).Should().BeFalse();
+        (Color.Red != Color.Blue).Should().BeTrue();
+    }
+
+    [Fact]
+    public void EqualityOperator_Null_ComparesWithoutThrowing()
+    {
+        Color? absent = null;
+
+        (absent == null).Should().BeTrue();
+        (Color.Red == absent).Should().BeFalse();
+        (absent != Color.Red).Should().BeTrue();
+    }
+
+    [Fact]
     public void FromArgb_EqualsConstructor()
     {
         var fromFactory = Color.FromArgb(128, 0, 0, 0);

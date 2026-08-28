@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      DocumentFormat.OpenXml is a test-only dependency. It supplies the schema validator used to
+      check produced packages against ECMA-376. It must never be referenced by the library itself:
+      the library writes OOXML by hand, and a test that used the same code to check the output
+      would only prove the writer agrees with itself.
+    -->
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Aspose.Slides.Foss\Aspose.Slides.Foss.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\test_data\**\*">
+      <Link>test_data\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

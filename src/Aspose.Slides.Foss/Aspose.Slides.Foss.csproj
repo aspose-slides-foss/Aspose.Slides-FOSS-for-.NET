@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -6,8 +6,65 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    Package identity. Version, authors, copyright, licence and repository URL come from
+    Directory.Build.props at the root; what is here is specific to this package.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Aspose.Slides.Foss</PackageId>
+    <Description>An MIT-licensed library for creating, reading and editing PowerPoint .pptx presentations. It builds the Office Open XML package itself, so it has no package dependencies and needs neither PowerPoint nor COM interop, and it runs anywhere .NET 9 runs. Covers slides, layouts and masters, shapes, text and text formatting, tables, connectors, pictures, fills, lines, effects, 3D formatting, notes slides, comments and document properties. Saves .pptx, .ppsx and .potx; XML parts it does not model are preserved verbatim through a load and save. Charts, SmartArt, animations, macros and export to formats other than PPTX are not implemented.</Description>
+    <PackageTags>pptx;powerpoint;presentation;slides;ooxml;openxml;office;document</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--
+      No PackageIcon. There is no icon asset in this repository, and drawing a new mark for a
+      package published under a company name would put a logo on nuget.org that the owner of that
+      name never approved. Add the property here once a real icon file is committed.
+    -->
+  </PropertyGroup>
+
+  <!--
+    XML documentation is generated and shipped, so editors show the same prose the source carries.
+    CS1591 (missing documentation on a public member) is deliberately NOT suppressed: with
+    TreatWarningsAsErrors set at the root, a new undocumented public member fails the build. That
+    is the intent — the public surface is fully documented today and the build is what keeps it so.
+  -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    Debuggability of the shipped package: a .snupkg of portable PDBs for the NuGet symbol server,
+    Source Link so a debugger can fetch the exact source from GitHub, and untracked generated
+    sources embedded in the PDB so they are not missing at that point. Source Link itself comes
+    from the .NET SDK; no package reference is needed.
+
+    Deterministic is on for every build; ContinuousIntegrationBuild — which additionally normalises
+    source paths to the repository-relative form Source Link needs — is switched on only on the
+    build server, because it would break local debugging of a local build.
+  -->
+  <PropertyGroup>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugType>portable</DebugType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Aspose.Slides.Foss.Tests" />
+  </ItemGroup>
+
+  <!--
+    The readme is what nuget.org renders on the package page. The licence text travels with the
+    package as well: PackageLicenseExpression tells NuGet which licence it is, but only a packed
+    file gives an offline consumer the terms themselves.
+  -->
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

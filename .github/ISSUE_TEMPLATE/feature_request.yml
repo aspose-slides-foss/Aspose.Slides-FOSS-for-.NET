@@ -1,0 +1,88 @@
+name: Feature request
+description: Ask for a capability this library does not have.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the README's **What it cannot do** section first. It lists what is missing and
+        names the API member that would have to exist, so a request that starts from it is much
+        easier to act on.
+
+        This library does not render or convert — no PDF, HTML, SVG, image or text export — and that
+        is a design boundary rather than a gap. Requests to add rendering will be closed with a
+        pointer to the commercial Aspose.Slides.
+
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      description: This repository is the .NET edition.
+      options:
+        - .NET (this repository)
+        - .NET, and the same gap exists in another edition
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version you checked
+      description: The commit SHA or package version you confirmed the capability is missing in.
+      placeholder: "e.g. 5ac2f06"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        Describe the outcome you need, not the API you imagine. "I need each deck to open in
+        presentation mode" is more useful than "add SlideShowTransition".
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would the API look like?
+      description: >
+        A sketch of the calls you would want to write. It does not have to be right — it makes the
+        shape of the request concrete.
+      render: csharp
+    validations:
+      required: false
+
+  - type: textarea
+    id: file
+    attributes:
+      label: What would change in the .pptx?
+      description: >
+        Which part of the package, and which elements. Everything this library does is ultimately a
+        change to the XML in the file, so knowing the target makes the work estimable. A pointer to
+        the ECMA-376 section is welcome if you have one.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What are you doing instead today?
+      description: >
+        A workaround, another library, post-processing the package by hand — anything that tells us
+        how much this is costing you.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: >
+            This is not rendering, conversion or export to a non-PPTX format.
+          required: true
+        - label: >
+            I am willing to work on this myself, or to test a change that implements it.
+          required: false

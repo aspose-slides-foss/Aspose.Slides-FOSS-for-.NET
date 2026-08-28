@@ -156,15 +156,26 @@ public sealed class SlideCollection : ISlideCollection
     /// <inheritdoc />
     public void Remove(ISlide value)
     {
-        Slides.Remove(value);
-        UpdateSlideNumbers();
-        PersistSlideList();
+        var index = Slides.IndexOf(value);
+        if (index < 0)
+            return;
+
+        RemoveAt(index);
     }
 
     /// <inheritdoc />
     public void RemoveAt(int index)
     {
+        var slide = Slides[index];
         Slides.RemoveAt(index);
+
+        // Dropping the slide from the in-memory list only rewrites <p:sldIdLst>. Everything else
+        // that makes the slide part of the package - the part, its relationships, the presentation
+        // relationship and the content-type Override - has to go with it, or the file keeps an
+        // orphan part nothing can reach and a relationship nothing names.
+        if (slide is Slide removed && _package is not null && _presentationPart is not null)
+            PackageSlides.RemoveSlide(_package, _presentationPart, removed.PartName);
+
         UpdateSlideNumbers();
         PersistSlideList();
     }
@@ -189,6 +200,38 @@ public sealed class SlideCollection : ISlideCollection
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     // ── Internal methods ─────────────────────────────────────────
+
+    /// <summary>
+    /// Replaces the slide order with <paramref name="order"/> and rewrites
+    /// <c>&lt;p:sldIdLst&gt;</c> to match.
+    /// </summary>
+    /// <param name="order">
+    /// The slides in their new order. Slides of this presentation the list does not mention follow
+    /// it, keeping their relative order, so a partial order can never drop a slide.
+    /// </param>
+    internal void ReorderInternal(IEnumerable<ISlide> order)
+    {
+        var current = Slides;
+        var reordered = new List<ISlide>();
+
+        foreach (var slide in order)
+        {
+            if (current.Contains(slide) && !reordered.Contains(slide))
+                reordered.Add(slide);
+        }
+
+        foreach (var slide in current)
+        {
+            if (!reordered.Contains(slide))
+                reordered.Add(slide);
+        }
+
+        current.Clear();
+        current.AddRange(reordered);
+
+        UpdateSlideNumbers();
+        PersistSlideList();
+    }
 
     /// <summary>
     /// Finds the next available slide file number by scanning existing part names.
@@ -550,31 +593,8 @@ public sealed class SlideCollection : ISlideCollection
 
     private Slide CreateNewSlide(ILayoutSlide? layout)
     {
-        var slideIndex = Slides.Count + 1;
-        var partName = $"ppt/slides/slide{slideIndex}.xml";
-
-        // Find a unique part name
-        while (_package!.GetPart(partName) is not null)
-        {
-            slideIndex++;
-            partName = $"ppt/slides/slide{slideIndex}.xml";
-        }
-
-        var slideXml = BuildEmptySlideXml();
-
-        // Store the slide part in the OPC package
-        using var ms = new MemoryStream();
-        slideXml.Save(ms);
-        _package.SetPart(partName, ms.ToArray());
-
-        // Create slide rels with layout reference and load into SlidePart
-        var slidePart = new SlidePart();
-        slidePart.InitInternal(partName);
-        slidePart.Element = slideXml.Root;
-        slidePart.Package = _package;
-        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
-        var relsPath = GetRelsPath(partName);
-        _package.SetPart(relsPath, slidePart.RelsManager.ToBytes());
+        var partName = AllocateSlidePartName();
+        var slidePart = StoreSlidePart(partName, BuildEmptySlideXml());
 
         var slide = new Slide();
         slide.PartName = partName;
@@ -588,14 +608,7 @@ public sealed class SlideCollection : ISlideCollection
 
     private Slide CloneSlide(ISlide sourceSlide)
     {
-        var slideIndex = Slides.Count + 1;
-        var partName = $"ppt/slides/slide{slideIndex}.xml";
-
-        while (_package!.GetPart(partName) is not null)
-        {
-            slideIndex++;
-            partName = $"ppt/slides/slide{slideIndex}.xml";
-        }
+        var partName = AllocateSlidePartName();
 
         // Clone slide XML from source
         XDocument slideXml;
@@ -608,18 +621,7 @@ public sealed class SlideCollection : ISlideCollection
             slideXml = BuildEmptySlideXml();
         }
 
-        using var ms = new MemoryStream();
-        slideXml.Save(ms);
-        _package.SetPart(partName, ms.ToArray());
-
-        // Create slide rels with layout reference and load into SlidePart
-        var slidePart = new SlidePart();
-        slidePart.InitInternal(partName);
-        slidePart.Element = slideXml.Root;
-        slidePart.Package = _package;
-        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
-        var relsPath = GetRelsPath(partName);
-        _package.SetPart(relsPath, slidePart.RelsManager.ToBytes());
+        var slidePart = StoreSlidePart(partName, slideXml);
 
         var slide = new Slide();
         slide.PartName = partName;
@@ -629,6 +631,50 @@ public sealed class SlideCollection : ISlideCollection
         slide.SetSlidePart(slidePart);
 
         return slide;
+    }
+
+    /// <summary>
+    /// Picks a slide part name that is not already taken in the package.
+    /// </summary>
+    private string AllocateSlidePartName()
+    {
+        var slideIndex = Slides.Count + 1;
+        var partName = $"ppt/slides/slide{slideIndex}.xml";
+
+        while (_package!.GetPart(partName) is not null)
+        {
+            slideIndex++;
+            partName = $"ppt/slides/slide{slideIndex}.xml";
+        }
+
+        return partName;
+    }
+
+    /// <summary>
+    /// Writes a new slide part into the package with everything that makes it a slide: the markup,
+    /// its content-type <c>Override</c> and its relationship to a layout.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Override</c> is not optional bookkeeping. Without it the part resolves through
+    /// <c>&lt;Default Extension="xml"/&gt;</c> to <c>application/xml</c>, and a reader that checks
+    /// content types — the Open XML SDK, python-pptx — refuses the package rather than the part.
+    /// </remarks>
+    private SlidePart StoreSlidePart(string partName, XDocument slideXml)
+    {
+        using var ms = new MemoryStream();
+        slideXml.Save(ms);
+        _package!.SetPart(partName, ms.ToArray());
+
+        OpcRegistration.AddContentTypeOverride(_package, partName, PartContentTypes.Slide);
+
+        var slidePart = new SlidePart();
+        slidePart.InitInternal(partName);
+        slidePart.Element = slideXml.Root;
+        slidePart.Package = _package;
+        slidePart.RelsManager.Add(SlideLayoutRelType, "../slideLayouts/slideLayout1.xml");
+        slidePart.RelsManager.Save();
+
+        return slidePart;
     }
 
     private void UpdateSlideNumbers()
@@ -668,10 +714,17 @@ public sealed class SlideCollection : ISlideCollection
                 new XAttribute(RNs + "id", relId)));
         }
 
-        // Insert sldIdLst after sldMasterIdLst (or at beginning)
-        var masterIdLst = root.Element(PNs + "sldMasterIdLst");
-        if (masterIdLst is not null)
-            masterIdLst.AddAfterSelf(sldIdLst);
+        // CT_Presentation is a sequence: sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst,
+        // sldIdLst, sldSz, ... Placing sldIdLst after sldMasterIdLst alone puts it in front of the
+        // notes master list when there is one, which is a schema error even though every element
+        // present is legal. Go after the last master list instead.
+        var precedingLists = new[] { "sldMasterIdLst", "notesMasterIdLst", "handoutMasterIdLst" };
+        var lastPreceding = precedingLists
+            .Select(name => root.Element(PNs + name))
+            .LastOrDefault(element => element is not null);
+
+        if (lastPreceding is not null)
+            lastPreceding.AddAfterSelf(sldIdLst);
         else
             root.AddFirst(sldIdLst);
 

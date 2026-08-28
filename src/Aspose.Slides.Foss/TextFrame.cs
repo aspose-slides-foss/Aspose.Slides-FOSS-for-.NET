@@ -43,33 +43,22 @@ public sealed class TextFrame : ISlideComponent, ITextFrame
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The collection is bound to the <c>&lt;a:txBody&gt;</c> of this text frame, so it reads the
+    /// paragraphs that are in the file and a paragraph added to it is written into the file. It was
+    /// previously filled with copies instead, which made every addition a change to a list nobody
+    /// read: the call returned, the save succeeded, and the text was not in the saved slide.
+    /// </remarks>
     public IParagraphCollection Paragraphs
     {
         get
         {
             var coll = new ParagraphCollection();
-            coll.InitInternal(_parentSlide);
 
             if (_txBody is not null)
-            {
-                foreach (var pElem in _txBody.Elements(AP))
-                {
-                    var paragraph = new Paragraph();
-                    paragraph.InitInternal(pElem, _txBody, _slidePart, _parentSlide);
-
-                    // Sync paragraph text from portions (read from XML via GetPortions)
-                    var portions = paragraph.Portions;
-                    if (portions.Count > 0)
-                    {
-                        var texts = new string[portions.Count];
-                        for (var i = 0; i < portions.Count; i++)
-                            texts[i] = portions[i].Text;
-                        paragraph.Text = string.Join("", texts);
-                    }
-
-                    coll.Add(paragraph);
-                }
-            }
+                coll.InitInternal(_txBody, _slidePart, _parentSlide);
+            else
+                coll.InitInternal(_parentSlide);
 
             return coll;
         }

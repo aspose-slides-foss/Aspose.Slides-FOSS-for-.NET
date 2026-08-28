@@ -87,9 +87,8 @@ public sealed class ImageTests
     private static ImageCollection CreateImageCollection()
     {
         var package = new OpcPackage();
-        var ctm = new ContentTypesManager();
         var collection = new ImageCollection();
-        collection.InitInternal(package, ctm);
+        collection.InitInternal(package);
         return collection;
     }
 

@@ -104,7 +104,8 @@ internal sealed class NotesSlidePart
     /// <summary>
     /// Creates an empty notes slide part in the OPC package for the given slide.
     /// </summary>
-    internal static NotesSlidePart CreateEmpty(OpcPackage package, string slidePartName)
+    internal static NotesSlidePart CreateEmpty(OpcPackage package, string slidePartName,
+        PresentationPart? presentationPart)
     {
         var notesPartName = ComputeNotesPartName(package, slidePartName);
         var doc = BuildEmptyNotesXml();
@@ -121,10 +122,20 @@ internal sealed class NotesSlidePart
         doc.Save(ms);
         package.SetPart(notesPartName, ms.ToArray());
 
-        // Create notes slide rels pointing back to the parent slide
+        // Declare what the part is. Without an Override it resolves through the "xml" Default to
+        // application/xml, and a content-type-checking reader refuses the package.
+        OpcRegistration.AddContentTypeOverride(package, notesPartName, PartContentTypes.NotesSlide);
+
+        // Create notes slide rels: back to the parent slide, and to the notes master a notes slide
+        // is required to have exactly one of.
         var notesRels = new RelsManager();
         var relativeSlideTarget = ComputeRelativeTarget(notesPartName, slidePartName);
         notesRels.Add(SlideRelType, relativeSlideTarget);
+
+        var notesMasterPartName = NotesMasterPart.EnsureInPackage(package, presentationPart);
+        notesRels.Add(NotesMasterPart.RelType,
+            ComputeRelativeTarget(notesPartName, notesMasterPartName));
+
         package.SetPart(GetRelsPath(notesPartName), notesRels.ToBytes());
 
         return part;
@@ -158,6 +169,7 @@ internal sealed class NotesSlidePart
     {
         package.RemovePart(partName);
         package.RemovePart(GetRelsPath(partName));
+        OpcRegistration.RemoveContentTypeOverride(package, partName);
     }
 
     /// <summary>

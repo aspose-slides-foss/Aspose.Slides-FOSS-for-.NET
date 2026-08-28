@@ -108,11 +108,30 @@ internal sealed class CommentsPart
     }
 
     /// <summary>
+    /// The attribute this class uses in memory to remember which comment a reply answers.
+    /// </summary>
+    /// <remarks>
+    /// CT_Comment declares <c>authorId</c>, <c>dt</c> and <c>idx</c> and nothing else, so this
+    /// attribute makes the part schema-invalid and no consumer renders a thread from it. Threading
+    /// in PowerPoint is a separate <c>ppt/threadedComments/</c> part, which this library does not
+    /// write. The marker is therefore stripped on the way out: <see cref="Comment.ParentComment"/>
+    /// answers from memory, and the file carries flat comments, which is what it really has.
+    /// </remarks>
+    internal const string ParentMarkerAttribute = "parentCmId";
+
+    /// <summary>
     /// Flushes the comments XML back to the OPC package at the given part name.
     /// </summary>
     internal void Flush(OpcPackage package, string partName)
     {
-        var doc = new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), _root);
+        var serialized = new XElement(_root);
+        foreach (var marker in serialized.DescendantsAndSelf()
+                     .Attributes(ParentMarkerAttribute).ToList())
+        {
+            marker.Remove();
+        }
+
+        var doc = new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), serialized);
         using var ms = new MemoryStream();
         doc.Save(ms);
         package.SetPart(partName, ms.ToArray());

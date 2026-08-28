@@ -1,5 +1,4 @@
 using System.Xml.Linq;
-using Aspose.Slides.Foss;
 
 namespace Aspose.Slides.Foss.Internal;
 
@@ -10,8 +9,22 @@ internal sealed class RelsManager
 {
     private static readonly XNamespace RelsNs = "http://schemas.openxmlformats.org/package/2006/relationships";
 
+    private const string ImageRelType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+
     private readonly List<Relationship> _relationships = new();
     private int _nextId = 1;
+
+    /// <summary>
+    /// Gets or sets the package these relationships are written to.
+    /// </summary>
+    internal OpcPackage? Package { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the part that owns these relationships
+    /// (e.g., "ppt/slides/slide1.xml"). Determines where <see cref="Save"/> writes.
+    /// </summary>
+    internal string OwnerPartName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets a relationship by its ID.
@@ -20,6 +33,11 @@ internal sealed class RelsManager
     {
         return _relationships.Find(r => r.Id == id);
     }
+
+    /// <summary>
+    /// Gets every relationship this part declares.
+    /// </summary>
+    internal IReadOnlyList<Relationship> All => _relationships;
 
     /// <summary>
     /// Finds relationships matching the given type.
@@ -106,21 +124,44 @@ internal sealed class RelsManager
     }
 
     /// <summary>
-    /// Adds an image relationship and returns the relationship ID.
+    /// Returns the id of a relationship from the owning part to the given media part, adding one
+    /// and persisting it if it does not already exist.
     /// </summary>
-    internal string AddImageRelationship(IPPImage image)
+    /// <param name="imagePartName">The absolute part name of the image (e.g., "ppt/media/image1.png").</param>
+    /// <returns>The relationship id to write as <c>r:embed</c>.</returns>
+    internal string EnsureImageRelationship(string imagePartName)
     {
-        const string imageRelType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
-        var target = $"../media/image{_nextId}.png";
-        return Add(imageRelType, target);
+        var fromDir = OpcPaths.DirectoryOf(OwnerPartName);
+
+        foreach (var rel in FindByType(ImageRelType))
+        {
+            if (!rel.IsExternal &&
+                string.Equals(OpcPaths.Resolve(fromDir, rel.Target), imagePartName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return rel.Id;
+            }
+        }
+
+        var id = Add(ImageRelType, OpcPaths.Relative(fromDir, imagePartName));
+        Save();
+        return id;
     }
 
     /// <summary>
-    /// Persists the relationships. Placeholder for actual OPC serialization.
+    /// Writes the relationships to the owning part's <c>.rels</c> part in the package.
     /// </summary>
+    /// <remarks>
+    /// Does nothing when <see cref="Package"/> or <see cref="OwnerPartName"/> has not been set,
+    /// which is the case for the short-lived instances used to read an existing <c>.rels</c> part.
+    /// Anything that adds a relationship meant to reach the file must be wired to both.
+    /// </remarks>
     internal void Save()
     {
-        // Placeholder for OPC rels serialization.
+        if (Package is null || string.IsNullOrEmpty(OwnerPartName))
+            return;
+
+        Package.SetPart(OpcPaths.RelsPartNameFor(OwnerPartName), ToBytes());
     }
 }
 

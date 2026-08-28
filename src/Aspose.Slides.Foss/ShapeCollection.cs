@@ -602,7 +602,22 @@ public sealed class ShapeCollection : IShapeCollection
     {
         var preset = OoxmlPresetMapping.ToPreset(shapeType) ?? "rect";
 
-        var rId = _slidePart?.RelsManager.AddImageRelationship(image) ?? "rId1";
+        if (_slidePart is null)
+        {
+            throw new InvalidOperationException(
+                "This shape collection is not attached to a slide part, so no image relationship " +
+                "can be written. A picture frame added here would reference a relationship that " +
+                "does not exist and the file would be rejected.");
+        }
+
+        if (image is not PPImage ppImage)
+        {
+            throw new ArgumentException(
+                "The image must have been added through IPresentation.Images so that it has a part " +
+                "in the package to point at.", nameof(image));
+        }
+
+        var rId = _slidePart.RelsManager.EnsureImageRelationship(ppImage.PartName);
 
         return new XElement(PNs + "pic",
             new XElement(PNs + "nvPicPr",
@@ -643,7 +658,7 @@ public sealed class ShapeCollection : IShapeCollection
             new XElement(ANs + "tblPr",
                 new XAttribute("firstRow", "1"),
                 new XAttribute("bandRow", "1"),
-                new XElement(ANs + "tblStyleId", "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}")),
+                new XElement(ANs + Table.TableStyleIdElement, "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}")),
             new XElement(ANs + "tblGrid"));
 
         var tblGrid = tbl.Element(ANs + "tblGrid")!;

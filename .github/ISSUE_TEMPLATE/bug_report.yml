@@ -1,0 +1,99 @@
+name: Bug report
+description: Something this library does is wrong, or the .pptx it writes is wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. The single most useful thing you can give us is a **minimal
+        program that reproduces it** — twenty lines that write a file we can open ourselves.
+
+        If this is a security issue, do not file it here. See
+        [SECURITY.md](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      description: >
+        There are four editions of this library and they differ. This repository is the .NET one;
+        pick another only if you are certain the report belongs here anyway.
+      options:
+        - .NET (this repository)
+        - Java
+        - C++
+        - Python
+        - More than one edition
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >
+        The commit SHA you built, or the package version if you installed one. `git rev-parse HEAD`
+        prints the SHA.
+      placeholder: "e.g. 0a1b2c3, or 26.8.0"
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: .NET runtime and operating system
+      description: The output of `dotnet --info`, abbreviated, is ideal.
+      placeholder: "e.g. .NET 9.0.3 on Ubuntu 24.04 x64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: >
+        A complete program we can compile and run. Include the input file if one is needed —
+        attach it, or say how to produce it. Please reduce it as far as it will go.
+      render: csharp
+      placeholder: |
+        using Aspose.Slides.Foss;
+        using Aspose.Slides.Foss.Export;
+
+        using var presentation = new Presentation();
+        // ...
+        presentation.Save("out.pptx", SaveFormat.Pptx);
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: >
+        If the complaint is about the file rather than the API, say which part of the package and
+        which element — for example "ppt/slides/slide1.xml should contain an `<a:blip r:embed>`".
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: >
+        The exception and stack trace, or the XML that was written, or the behaviour of the
+        application that opened the file. Paste text rather than a screenshot where you can.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: >
+            I checked the README's "What it cannot do" section, and this is not one of the
+            capabilities that is documented as absent.
+          required: true
+        - label: >
+            I reproduced this against the current `main`, not only against an older build.
+          required: false

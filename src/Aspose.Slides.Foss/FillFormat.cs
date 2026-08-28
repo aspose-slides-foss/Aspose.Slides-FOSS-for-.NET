@@ -210,7 +210,7 @@ public sealed class FillFormat : PVIObject, IFillFormat, IFillParamSource
             if (el is null || el.Name.LocalName != "blipFill")
                 el = GetOrCreateFill("blipFill");
             var pff = new PictureFillFormat();
-            pff.InitInternal(el, _slidePart);
+            pff.InitInternal(el, _slidePart, _parentSlide);
             return pff;
         }
     }

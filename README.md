@@ -1,29 +1,21 @@
 # Aspose.Slides FOSS for .NET
 
-[![CI](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![.NET 9.0](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj)
+[![CI](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/LICENSE)
+[![.NET 9.0](https://img.shields.io/badge/.NET-9.0-512BD4.svg)](https://dotnet.microsoft.com/)
 
-[![Aspose.Slides FOSS for .NET](https://products.aspose.org/media/slides/net/banner-readme.png)](https://products.aspose.org/slides/net/)
+An MIT-licensed .NET library that creates, reads and edits PowerPoint `.pptx` presentations by
+building the Office Open XML package itself — no PowerPoint installation, no COM interop, no native
+dependency and no NuGet dependencies at all.
 
-Aspose.Slides FOSS for .NET is a free, open-source .NET library for creating, reading, and
-editing PowerPoint `.pptx` presentations. It targets `net9.0`, ships with no third-party package
-dependencies — it implements its own minimal OPC/ZIP container and XML parser internally — and
-exposes a broad set of presentation-editing features covering slides, shapes, text, styling, and
-document metadata.
+It is for developers who need to generate or modify decks on a server or in a build, and who are
+working *inside* the PowerPoint file format. It is not a renderer or a converter: it does not
+produce PDF, HTML or images, and the things it cannot do are listed in full under
+[What it cannot do](#what-it-cannot-do).
 
-## Navigation
+---
 
-- [At a Glance](#at-a-glance)
-- [Key Capabilities](#key-capabilities)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Additional Examples](#additional-examples)
-- [API Reference](#api-reference)
-- [Documentation & Resources](#documentation--resources)
-- [Scope and Limitations](#scope-and-limitations)
-- [Development and Testing](#development-and-testing)
-- [License](#license)
-
-## At a Glance
+## At a glance
 
 ```mermaid
 flowchart TD
@@ -37,7 +29,7 @@ flowchart TD
     subgraph capl[" "]
       direction TB
       c1["Presentation, slide, and section creation and editing"]
-      c2["Shape creation (AutoShape, Table, Connector, PictureFrame); existing groups recognized"]
+      c2["Shape creation (AutoShape, Table, Connector, PictureFrame)"]
       c3["Text formatting (TextFrame, Paragraph, Portion)"]
       c4["Fill, line, and 3D shape styling"]
     end
@@ -45,587 +37,503 @@ flowchart TD
       direction TB
       c5["Visual effects (shadow, glow, blur, reflection)"]
       c6["Document properties (core, app, custom)"]
-      c7["Speaker notes and threaded comments"]
+      c7["Speaker notes and classic comments"]
       c8["Image embedding"]
     end
   end
   subgraph Outputs["Outputs"]
     direction TB
-    o1["PPTX presentation"]
+    o1["PPTX, PPSX or POTX package"]
   end
   StartingPoints --> PRODUCT --> Capabilities --> Outputs
 ```
 
-## Key Capabilities
+The diagram is an overview, not a contract. Each box is expanded, with the XML it produces, under
+[What it can do](#what-it-can-do); the boundaries are under
+[What it cannot do](#what-it-cannot-do).
 
-- Open an existing `.pptx` file or create a new `Presentation` from scratch, then save it back to
-  `.pptx` — unknown XML parts encountered on load are preserved verbatim, so round-tripping a file
-  never strips content this library doesn't yet recognize.
-- Manage slides through `SlideCollection` — add, remove, clone, and iterate slides — or
-  organize them into `Section` groups via `SectionCollection`.
-- Add shapes — AutoShapes, PictureFrames, Tables, and Connectors — through
-  `ShapeCollection.AddAutoShape()`, `AddPictureFrame()`, `AddTable()`, and `AddConnector()`;
-  shapes already grouped in a loaded file are recognized as `GroupShape`, though groups cannot be
-  created or modified programmatically.
-- Style text through `TextFrame`, `Paragraph`, and `Portion` — character-level formatting via
-  `PortionFormat` and `BulletFormat`; paragraph alignment, spacing, indentation, and margins via
-  `Paragraph.ParagraphFormat`; and text-frame margins, wrap, anchoring, columns, and autofit via
-  `TextFrame.TextFrameFormat`.
-- Style shapes with `FillFormat` — solid, gradient, pattern, and picture fills — and `LineFormat`
-  for line width, dash style, arrows, join, and alignment.
-- Apply visual effects through `EffectFormat` — outer shadow, glow, soft edge, blur, reflection,
-  and inner shadow.
-- Configure 3D bevel, camera, light rig, material, and extrusion depth through `ThreeDFormat`.
-- Read and write core, app, and custom document properties through `DocumentProperties`,
-  including `SetCustomPropertyValue()`.
-- Attach per-slide speaker notes with header/footer management via
-  `NotesSlideManager.AddNotesSlide()`, and threaded review comments with authors, timestamps, and
-  positions via `CommentAuthorCollection.AddAuthor()` and `CommentCollection.AddComment()`.
-- Embed images from a file, bytes, or stream through `Presentation.Images.AddImage()`, and
-  reference them from `PictureFrame` shapes.
+---
+
+## Requirements
+
+| | |
+|---|---|
+| Target framework | `net9.0` |
+| Package dependencies | none — the library declares no `PackageReference` |
+| Native dependencies | none — no `DllImport`, no `LibraryImport`, no `unsafe` code |
+| Platforms | the CI workflow builds and runs every test on `ubuntu-latest`, `windows-latest` and `macos-latest` |
+
+A `net9.0` assembly also loads on later .NET runtimes by roll-forward, but CI does not exercise
+that, so this file does not promise it.
 
 ## Installation
 
-A NuGet package for `Aspose.Slides.Foss` has not been published yet. Install it from a source
-checkout instead (requires the [.NET 9.0 SDK](https://dotnet.microsoft.com/download)):
+**There is no NuGet package yet.** `Aspose.Slides.Foss` is the package id the project builds under,
+but nothing has been published to nuget.org, so `dotnet add package Aspose.Slides.Foss` will not
+resolve. The two routes that work today are source and CI artefacts.
+
+### Build from source
 
 ```bash
 git clone https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git
 cd Aspose.Slides-FOSS-for-.NET
-dotnet build
+dotnet build src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj --configuration Release
 ```
 
-Reference the library project directly from your own `.csproj`:
+Then reference the project from your own:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="path/to/Aspose.Slides-FOSS-for-.NET/src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj" />
+  <ProjectReference Include="../Aspose.Slides-FOSS-for-.NET/src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj" />
 </ItemGroup>
 ```
 
-The library targets `net9.0` and has no third-party package dependencies.
+### Install the package CI built
 
-## Dependencies
+Every push, on any branch, whose tests pass produces a `.nupkg` and a symbol `.snupkg` as workflow
+artefacts. Download them from the
+[Actions](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions) tab — GitHub
+hands you a `.zip`, so extract it first; NuGet reads a folder of `.nupkg` files, not a zip of them —
+put the extracted files in a folder, and point NuGet at that folder:
 
-### Required Package Dependencies
-
-No required third-party package dependencies.
-
-### Development Dependencies
-
-- `xunit` and `xunit.runner.visualstudio` — the test framework and runner used by this project's
-  own test suite.
-- `Microsoft.NET.Test.Sdk` — the .NET test SDK required to build and run the test projects.
-- `FluentAssertions` — the assertion library used in this project's own tests.
-- `coverlet.collector` — the code-coverage collector used by this project's own test tooling.
-
-## Quick Start
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-// Open an existing presentation
-using var prs = new Presentation("input.pptx");
-Console.WriteLine($"Slides: {prs.Slides.Count}");
-prs.Save("output.pptx", SaveFormat.Pptx);
-
-// Create a new presentation
-using var newPrs = new Presentation();
-var slide = newPrs.Slides[0];
-newPrs.Save("new.pptx", SaveFormat.Pptx);
+```xml
+<!-- nuget.config next to your solution -->
+<configuration>
+  <packageSources>
+    <add key="local" value="./local-packages" />
+  </packageSources>
+</configuration>
 ```
 
-## Additional Examples
-
-One runnable snippet per feature area:
-
-### Shapes
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var slide = prs.Slides[0];
-var shape = slide.Shapes.AddAutoShape(ShapeType.Rectangle, 50, 50, 300, 100);
-shape.AddTextFrame("Hello, world!");
-prs.Save("shapes.pptx", SaveFormat.Pptx);
+```bash
+dotnet add package Aspose.Slides.Foss --version 26.8.0
 ```
 
-<details>
-<summary>View Additional Examples</summary>
-
-### Text Formatting
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Drawing;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var shape = prs.Slides[0].Shapes.AddAutoShape(ShapeType.Rectangle, 50, 50, 400, 150);
-var tf = shape.AddTextFrame("Formatted text");
-var fmt = tf.Paragraphs[0].Portions[0].PortionFormat;
-fmt.FontHeight = 24;
-fmt.FontBold = NullableBool.True;
-fmt.FillFormat.FillType = FillType.Solid;
-fmt.FillFormat.SolidFillColor.Color = Color.FromArgb(255, 0, 70, 127);
-prs.Save("text.pptx", SaveFormat.Pptx);
-```
-
-### Table
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var table = prs.Slides[0].Shapes.AddTable(50, 50, [120.0, 120.0, 120.0], [40.0, 40.0]);
-table.Rows[0][0].TextFrame.Text = "Name";
-table.Rows[0][1].TextFrame.Text = "Value";
-prs.Save("table.pptx", SaveFormat.Pptx);
-```
-
-### Connector
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var slide = prs.Slides[0];
-var box1 = slide.Shapes.AddAutoShape(ShapeType.Rectangle, 50, 100, 150, 60);
-var box2 = slide.Shapes.AddAutoShape(ShapeType.Rectangle, 350, 100, 150, 60);
-var conn = slide.Shapes.AddConnector(ShapeType.BentConnector3, 0, 0, 10, 10);
-conn.StartShapeConnectedTo = box1;
-conn.StartShapeConnectionSiteIndex = 3;  // right
-conn.EndShapeConnectedTo = box2;
-conn.EndShapeConnectionSiteIndex = 1;    // left
-prs.Save("connector.pptx", SaveFormat.Pptx);
-```
-
-### Fill
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Drawing;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var shape = prs.Slides[0].Shapes.AddAutoShape(ShapeType.Rectangle, 50, 50, 300, 150);
-shape.FillFormat.FillType = FillType.Solid;
-shape.FillFormat.SolidFillColor.Color = Color.FromArgb(255, 30, 120, 200);
-prs.Save("fill.pptx", SaveFormat.Pptx);
-```
-
-### Notes
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var notes = prs.Slides[0].NotesSlideManager.AddNotesSlide();
-notes.NotesTextFrame.Text = "Speaker notes go here.";
-prs.Save("notes.pptx", SaveFormat.Pptx);
-```
-
-### Comments
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Drawing;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-var author = prs.CommentAuthors.AddAuthor("Jane Smith", "JS");
-var slide = prs.Slides[0];
-author.Comments.AddComment("Review this slide", slide, new PointF(2.0f, 2.0f), DateTime.Now);
-prs.Save("comments.pptx", SaveFormat.Pptx);
-```
-
-### Document Properties
-
-```csharp
-using Aspose.Slides.Foss;
-using Aspose.Slides.Foss.Export;
-
-using var prs = new Presentation();
-prs.DocumentProperties.Title = "Q1 Results";
-prs.DocumentProperties.Author = "Finance Team";
-prs.DocumentProperties.SetCustomPropertyValue("Version", 3);
-prs.Save("deck.pptx", SaveFormat.Pptx);
-```
-
-</details>
-
-## API Reference
-
-The primary entry point is `Presentation`, which owns a `SlideCollection` of `Slide` objects; each
-`Slide` exposes its shapes through `Slide.Shapes` (a `ShapeCollection`).
-
-<details>
-<summary>View the Core API Surface</summary>
-
-### Aspose.Slides.Foss
-
-| Class | Description |
-|---|---|
-| `AdjustValue` | Represents a geometry shape adjustment value backed by an XML guide definition element. |
-| `AdjustValueCollection` | Represents a collection of shape's adjustment values. |
-| `AutoShape` | Represents an AutoShape — a preset or custom geometric shape that may contain text. |
-| `BaseHandoutNotesSlideHeaderFooterManager` | Represents the base class for handout and notes slide header/footer managers. |
-| `BasePortionFormat` | Common text-run formatting properties backed by an OOXML &lt;a:rPr&gt; element. |
-| `BaseShapeLock` | Represents the base class for locks that determine which operations are disabled on a shape. |
-| `BaseSlide` | Base class for Slide, LayoutSlide, and MasterSlide providing common slide functionality. |
-| `Blur` | Represents a blur effect that is applied to the entire shape, including its fill. |
-| `BulletFormat` | Manages paragraph bullet formatting backed by OOXML bullet elements. |
-| `Camera` | Represents 3D camera properties for a shape. |
-| `Cell` | Represents a single cell within a table in a PowerPoint presentation. |
-| `CellCollection` | Represents a read-only collection of table cells associated with a parent slide and slide part. |
-| `CellFormat` | Represents the formatting properties of a table cell, providing access to fill formatting and six border line formats (left, top, right, bottom, diagonal-down, diagonal-up). |
-| `Color` | Immutable value type representing an ARGB color. |
-| `ColorFormat` | Represents a color format used in presentation elements. |
-| `Column` | Represents a table column as a collection of cells (one per row). |
-| `ColumnCollection` | Represents a collection of columns in a table. |
-| `ColumnFormat` | Represents the formatting properties of a table column. |
-| `Comment` | Represents a comment on a slide. |
-| `CommentAuthor` | Represents an author of comments in a presentation. |
-| `CommentAuthorCollection` | Represents a collection of comment authors backed by a CommentAuthorsPart. |
-| `CommentCollection` | Represents a collection of comments authored by a single author across all slides in a presentation. |
-| `Connector` | Represents a connector shape that can link two shapes via connection sites. |
-| `ConnectorLock` | Determines which operations are disabled on the parent connector shape. |
-| `CustomData` | Represents custom data associated with a shape. |
-| `DocumentProperties` | Represents the metadata properties of a presentation, wrapping OPC core, app, and custom property parts with lazy initialization. |
-| `EffectFormat` | Represents effect formatting properties backed by an effectLst element. |
-| `FillFormat` | Represents fill formatting options. |
-| `FillOverlay` | Represents a Fill Overlay effect. |
-| `FontData` | Represents a font definition with a typeface name. |
-| `GeometryShape` | Represents the base class for shapes that have geometric properties. |
-| `GlobalLayoutSlideCollection` | Aggregates all layout slides across all master slides in a presentation. |
-| `Glow` | Represents a glow effect, in which a color blurred outline is added outside the edges of the object. |
-| `GradientFormat` | Represents a gradient format. |
-| `GradientStop` | Represents a single gradient stop within a gradient fill. |
-| `GradientStopCollection` | Manages a collection of &lt;a:gs&gt; child elements within an &lt;a:gsLst&gt; XML element. |
-| `GraphicalObject` | Abstract base class for graphical objects on a slide. |
-| `GraphicalObjectLock` | Represents a lock that determines which operations are disabled on a graphical object. |
-| `GroupShape` | Represents a group shape that contains a collection of shapes. |
-| `HeadingPair` | Represents a 'Heading pair' property of the document. |
-| `IImage` | Represents a raster or vector image. |
-| `IImageCollection` | Represents a collection of IPPImage objects. |
-| `IPPImage` | Represents a presentation-embedded image stored in an OPC package part. |
-| `IParagraph` | Represents a paragraph of text. |
-| `IPortion` | Represents a portion (run) of text inside a paragraph. |
-| `IPresentation` | Represents a presentation document. |
-| `IPresentationComponent` | Represents any component that belongs to a presentation. |
-| `ISlideComponent` | Represents any component that belongs to a slide. |
-| `ISlidesPicture` | Represents a picture reference within a slide. |
-| `IThemeable` | Represents objects that can be themed. |
-| `Image` | Concrete image wrapper holding raw bytes and metadata. |
-| `ImageCollection` | Concrete collection managing presentation images within an OPC package. |
-| `ImageTransformOperation` | Represents an image transform operation effect. |
-| `Images` | Provides static factory methods for creating Image instances. |
-| `InnerShadow` | Represents an inner shadow effect. |
-| `LayoutSlide` | Represents a layout slide in a presentation. |
-| `LayoutSlideCollection` | Base class for collections of layout slides. |
-| `LightRig` | Represents a light rig. |
-| `LineFillFormat` | Represents properties for lines filling. |
-| `LineFormat` | Represents line formatting properties. |
-| `LoadOptions` | Represents options that can be used to control how a presentation is loaded. |
-| `MasterLayoutSlideCollection` | Represents a collections of all layout slides of defined master slide. |
-| `MasterSlide` | Represents a master slide in a presentation. |
-| `MasterSlideCollection` | Represents a collection of master slides in a presentation. |
-| `NotesSize` | Represents the size of a notes slide. |
-| `NotesSlide` | Represents a notes slide in a presentation. |
-| `NotesSlideHeaderFooterManager` | Manages visibility and text content of header, footer, date-time, and slide number placeholders on a notes slide. |
-| `NotesSlideManager` | Manages notes slide operations for a slide. |
-| `OuterShadow` | Represents an outer shadow effect. |
-| `PPImage` | Concrete presentation-embedded image backed by an OPC package part. |
-| `PVIObject` | Concrete base class providing property-value-inheritance infrastructure. |
-| `Paragraph` | Represents a paragraph of text. |
-| `ParagraphCollection` | Represents a collection of paragraphs. |
-| `ParagraphFormat` | Represents the formatting properties for a paragraph. |
-| `PatternFormat` | Represents a pattern fill format. |
-| `Picture` | Concrete picture reference backed by an a:blip XML element in a slide's XML. |
-| `PictureFillFormat` | Represents a picture fill style. |
-| `PictureFrame` | Represents a picture frame shape. |
-| `PictureFrameLock` | Determines which operations are disabled on the parent picture frame. |
-| `Placeholder` | Represents a placeholder on a slide. |
-| `PointF` | Represents a 2D point with float coordinates. |
-| `Portion` | Represents a portion (run) of text inside a text paragraph. |
-| `PortionCollection` | Represents a mutable collection of portions belonging to a slide component. |
-| `PortionFormat` | This class contains the text portion formatting properties. |
-| `Presentation` | Represents a Microsoft PowerPoint presentation document. |
-| `PresetShadow` | Represents a preset shadow effect. |
-| `Reflection` | Represents a reflection effect. |
-| `Row` | Represents a table row as a collection of cells. |
-| `RowCollection` | Represents a collection of rows in a table. |
-| `RowFormat` | Represents the formatting properties of a table row. |
-| `SaveOptions` | Represents options that control how a presentation is saved. |
-| `Section` | Represents a section of slides in a presentation. |
-| `SectionCollection` | Represents a collection of sections in a presentation. |
-| `Shape` | Base class for all shapes on a slide. |
-| `ShapeBevel` | Represents the bevel (relief) properties of a shape's face. |
-| `ShapeCollection` | Represents an ordered, mutable collection of IShape objects belonging to a slide or group shape. |
-| `ShapeFrame` | Represents the geometric frame properties of a shape. |
-| `ShapeStyle` | Represents a shape's style reference. |
-| `Size` | Represents a 2D size with integer dimensions. |
-| `SizeF` | Represents a 2D size with float dimensions. |
-| `Slide` | Represents a slide in a presentation. |
-| `SlideCollection` | Represents a collection of slides in a presentation. |
-| `SoftEdge` | Represents a soft edge effect. |
-| `Table` | Represents a table shape on a slide. |
-| `TableFormat` | Represents format of a table. |
-| `TextFrame` | Represents the text body of a shape. |
-| `TextFrameFormat` | Contains the TextFrame's formatting properties. |
-| `ThreeDFormat` | Represents 3-D formatting properties for a shape. |
-
-#### Interfaces
-
-| Interface | Description |
-|---|---|
-| `IAdjustValue` | Represents a single adjustment value for a geometry shape. |
-| `IAdjustValueCollection` | Represents a collection of shape adjustment values. |
-| `IAutoShape` | Represents an AutoShape. |
-| `IBaseHandoutNotesSlideHeaderFooterManager` | Represents a base interface for handout and notes slide header and footer management. |
-| `IBaseHeaderFooterManager` | Represents a base interface for header and footer management. |
-| `IBasePortionFormat` | Defines common text run formatting properties. |
-| `IBaseSlide` | Represents a base slide. |
-| `IBaseSlideHeaderFooterManager` | Represents a base interface for slide-level header and footer management. |
-| `IBlur` | Represents a blur effect that is applied to the entire shape, including its fill. |
-| `IBulkTextFormattable` | Represents an object that can apply text formatting in bulk to all contained text. |
-| `IBulletFormat` | Represents paragraph bullet formatting properties. |
-| `ICamera` | Represents the 3-D camera properties for a shape. |
-| `ICell` | Represents a single cell in a table. |
-| `ICellCollection` | Represents a collection of table cells. |
-| `ICellFormat` | Represents the formatting of a table cell. |
-| `IColorFormat` | Represents a color format used in presentation elements. |
-| `IColumn` | Represents a single column in a table. |
-| `IColumnCollection` | Represents a collection of table columns. |
-| `IColumnFormat` | Represents the formatting properties of a table column. |
-| `IComment` | Represents a comment on a slide. |
-| `ICommentAuthor` | Represents an author of comments. |
-| `ICommentAuthorCollection` | Represents a collection of comment authors. |
-| `ICommentCollection` | Represents a collection of comments. |
-| `IConnector` | Represents a connector shape that links two shapes. |
-| `IConnectorLock` | Determines which operations are disabled on the parent connector shape. |
-| `ICustomData` | Represents custom data associated with a shape. |
-| `IDocumentProperties` | Represents the metadata properties of a presentation document. |
-| `IEffectFormat` | Represents visual effect formatting properties for a shape. |
-| `IEffectParamSource` | Represents a source of effect parameters. |
-| `IFillFormat` | Represents fill formatting properties for a shape or text. |
-| `IFillOverlay` | Represents a Fill Overlay effect. |
-| `IFillParamSource` | Auxiliary interface for fill parameter source. |
-| `IFontData` | Represents a font definition. |
-| `IGeometryShape` | Represents a shape with geometric properties. |
-| `IGlobalLayoutSlideCollection` | Represents a collection of all layout slides in presentation. |
-| `IGlow` | Represents a glow effect, in which a color blurred outline is added outside the edges of the object. |
-| `IGradientFormat` | Represents gradient fill formatting properties. |
-| `IGradientStop` | Represents a single stop in a gradient fill. |
-| `IGradientStopCollection` | Represents a collection of gradient stops. |
-| `IGraphicalObject` | Represents a graphical object on a slide. |
-| `IGraphicalObjectLock` | Determines which operations are disabled on the parent graphical object. |
-| `IGroupShape` | Represents a group shape that contains other shapes. |
-| `IHeadingPair` | Represents a heading pair entry describing a content grouping in a presentation. |
-| `IHyperlinkContainer` | Represents an object that can contain hyperlinks. |
-| `IImageTransformOperation` | Represents an image transform operation effect. |
-| `IInnerShadow` | Represents an inner shadow effect. |
-| `ILayoutSlide` | Represents a layout slide. |
-| `ILayoutSlideCollection` | Represents a base class for collection of layout slides. |
-| `ILightRig` | Represents a light rig. |
-| `ILineFillFormat` | Represents properties for lines filling. |
-| `ILineFormat` | Represents format of a line. |
-| `ILineParamSource` | Marker interface for objects that can serve as a source of line parameters. |
-| `ILoadOptions` | Represents options that can be used to control how a presentation is loaded. |
-| `IMasterLayoutSlideCollection` | Represents a collection of layout slides belonging to a master slide. |
-| `IMasterSlide` | Represents a master slide in a presentation. |
-| `IMasterSlideCollection` | Represents a collection of master slides. |
-| `INotesSize` | Represents the size of a notes slide. |
-| `INotesSlide` | Represents a notes slide in a presentation. |
-| `INotesSlideHeaderFooterManager` | Represents a manager for notes slide header and footer placeholders. |
-| `INotesSlideManager` | Manages notes slide operations for a slide. |
-| `IOuterShadow` | Represents an Outer Shadow effect. |
-| `IParagraphCollection` | Represents a collection of paragraphs. |
-| `IParagraphFormat` | Contains the paragraph formatting properties. |
-| `IPatternFormat` | Represents a pattern fill format. |
-| `IPictureFillFormat` | Represents a picture fill style. |
-| `IPictureFrame` | Represents a picture frame shape. |
-| `IPictureFrameLock` | Determines which editing operations are disabled on a picture frame. |
-| `IPlaceholder` | Represents a placeholder on a slide. |
-| `IPortionCollection` | Represents a collection of portions. |
-| `IPortionFormat` | Defines the formatting properties for a text portion, combining base portion formatting with hyperlink container capabilities. |
-| `IPresetShadow` | Represents a Preset Shadow effect. |
-| `IReflection` | Represents a reflection effect. |
-| `IRow` | Represents a row in a table. |
-| `IRowCollection` | Represents a collection of table rows. |
-| `IRowFormat` | Represents the formatting properties for a table row. |
-| `ISaveOptions` | Represents options that control how a presentation is saved. |
-| `ISection` | Represents a section of slides in a presentation. |
-| `ISectionCollection` | Represents a collection of sections in a presentation. |
-| `IShape` | Represents a shape on a slide. |
-| `IShapeBevel` | Represents the bevel (relief) properties of a shape's face. |
-| `IShapeCollection` | Represents an ordered, mutable collection of IShape objects belonging to a slide or group shape. |
-| `IShapeFrame` | Represents the geometric frame properties of a shape. |
-| `IShapeStyle` | Represents a shape's style reference. |
-| `ISlide` | Represents a slide in a presentation. |
-| `ISlideCollection` | Represents a collection of slides in a presentation. |
-| `ISoftEdge` | Represents a Soft Edge effect. |
-| `ITable` | Represents a table on a slide. |
-| `ITableFormat` | Represents format of a table. |
-| `ITextFrame` | Represents the text frame of a shape or cell. |
-| `ITextFrameFormat` | Contains the TextFrame's formatting properties. |
-| `IThreeDFormat` | Represents 3-D properties. |
-| `IThreeDParamSource` | Marker interface for objects that provide 3D formatting parameters. |
-
-#### Enumerations
-
-| Enumeration | Description |
-|---|---|
-| `BevelPresetType` | Represents BevelPresetType enumeration. |
-| `BulletType` | Represents BulletType enumeration. |
-| `CameraPresetType` | Represents CameraPresetType enumeration. |
-| `ColorType` | Represents ColorType enumeration. |
-| `FillBlendMode` | Represents FillBlendMode enumeration. |
-| `FillType` | Represents FillType enumeration. |
-| `FontAlignment` | Represents FontAlignment enumeration. |
-| `GradientDirection` | Represents GradientDirection enumeration. |
-| `GradientShape` | Represents GradientShape enumeration. |
-| `LightRigPresetType` | Represents LightRigPresetType enumeration. |
-| `LightingDirection` | Represents LightingDirection enumeration. |
-| `LineAlignment` | Represents LineAlignment enumeration. |
-| `LineArrowheadLength` | Represents LineArrowheadLength enumeration. |
-| `LineArrowheadStyle` | Represents LineArrowheadStyle enumeration. |
-| `LineArrowheadWidth` | Represents LineArrowheadWidth enumeration. |
-| `LineCapStyle` | Represents LineCapStyle enumeration. |
-| `LineDashStyle` | Represents LineDashStyle enumeration. |
-| `LineJoinStyle` | Represents LineJoinStyle enumeration. |
-| `LineStyle` | Represents LineStyle enumeration. |
-| `MaterialPresetType` | Represents MaterialPresetType enumeration. |
-| `NullableBool` | Represents NullableBool enumeration. |
-| `NumberedBulletStyle` | Represents NumberedBulletStyle enumeration. |
-| `PatternStyle` | Represents PatternStyle enumeration. |
-| `PictureFillMode` | Represents PictureFillMode enumeration. |
-| `PresetColor` | Represents PresetColor enumeration. |
-| `PresetShadowType` | Represents PresetShadowType enumeration. |
-| `RectangleAlignment` | Represents RectangleAlignment enumeration. |
-| `SaveFormat` | Defines constants representing all supported file formats for saving a presentation. |
-| `SchemeColor` | Represents SchemeColor enumeration. |
-| `ShapeType` | Represents preset geometry of geometry shapes. |
-| `SlideLayoutType` | Represents SlideLayoutType enumeration. |
-| `SourceFormat` | Represents SourceFormat enumeration. |
-| `TableStylePreset` | Represents TableStylePreset enumeration. |
-| `TextAlignment` | Represents TextAlignment enumeration. |
-| `TextAnchorType` | Represents TextAnchorType enumeration. |
-| `TextAutofitType` | Represents TextAutofitType enumeration. |
-| `TextCapType` | Represents TextCapType enumeration. |
-| `TextShapeType` | Represents TextShapeType enumeration. |
-| `TextStrikethroughType` | Represents TextStrikethroughType enumeration. |
-| `TextUnderlineType` | Represents TextUnderlineType enumeration. |
-| `TextVerticalType` | Represents TextVerticalType enumeration. |
-| `TileFlip` | Represents TileFlip enumeration. |
+`26.8.0` is the version in `Directory.Build.props` today; use whatever the artefact you downloaded
+is called.
 
 ---
 
-#### Detailed Member Reference
+## Quick start
 
-### Presentation and Slides
+```csharp
+using Aspose.Slides.Foss;
+using Aspose.Slides.Foss.Export;
 
-- `Presentation`
-  - `Slides -> SlideCollection`
-  - `LayoutSlides -> LayoutSlideCollection`
-  - `Masters -> MasterSlideCollection`
-  - `DocumentProperties -> DocumentProperties`
-  - `CommentAuthors -> CommentAuthorCollection`
-  - `Save(fileName, format)` / `Save(stream, format)`
-- `SlideCollection`
-  - `AddEmptySlide(layout) -> Slide`
-  - `AddClone(slide) -> Slide`
-  - `RemoveAt(index)`
-- `Slide`
-  - `Shapes -> ShapeCollection`
-  - `NotesSlideManager -> NotesSlideManager`
-  - `Hidden` (bool)
+using (var presentation = new Presentation())
+{
+    ISlide slide = presentation.Slides[0];
+    IAutoShape shape = slide.Shapes!.AddAutoShape(ShapeType.Rectangle, 50, 50, 400, 100);
+    shape.AddTextFrame("Hello from Aspose.Slides FOSS");
 
-### Shapes and Text
+    presentation.Save("hello.pptx", SaveFormat.Pptx);
+}
 
-- `ShapeCollection`
-  - `AddAutoShape(shapeType, x, y, width, height) -> AutoShape`
-  - `AddTable(x, y, colWidths, rowHeights) -> Table`
-  - `AddConnector(shapeType, x, y, width, height) -> Connector`
-  - `AddPictureFrame(shapeType, x, y, width, height, image) -> PictureFrame`
-- `TextFrame`
-  - `Paragraphs -> ParagraphCollection`
-  - `Text` (set convenience)
-- `Portion`
-  - `PortionFormat -> PortionFormat`
-- `PortionFormat`
-  - `FontHeight`, `FontBold`, `FillFormat -> FillFormat`
+using var reopened = new Presentation("hello.pptx");
+var reread = (IAutoShape)reopened.Slides[0].Shapes![0];
 
-### Styling and Effects
-
-- `FillFormat` — `FillType`, `SolidFillColor`
-- `LineFormat` — `Width`, `DashStyle`
-- `EffectFormat` — `EnableOuterShadowEffect()`, `OuterShadowEffect`
-- `ThreeDFormat` — `BevelTop`
-
-### Document Properties, Notes, and Comments
-
-- `DocumentProperties` — `Title`, `Author`, `SetCustomPropertyValue(name, value)`
-- `NotesSlideManager` — `AddNotesSlide() -> NotesSlide`
-- `CommentAuthorCollection` — `AddAuthor(name, initials) -> CommentAuthor`
-- `CommentAuthor` — `Comments.AddComment(text, slide, position, dateTime)`
-
-### Images
-
-- `Images` — `FromFile(path) -> Image`, `FromStream(stream) -> Image`
-- `ImageCollection` — `AddImage(bytes) -> IPPImage`
-
-</details>
-
-## Documentation & Resources
-
-See below for documentation links and support resources.
-
-- **[Getting started guide](https://docs.aspose.org/slides/net/)** — installation, walkthroughs, and feature guides for this library.
-- **[How-to guides & FAQ](https://kb.aspose.org/slides/net/)** — task-focused answers for common presentation-processing questions.
-- **[Full API reference](https://reference.aspose.org/slides/net/)** — the complete, browsable reference for all 242 public types (the [API reference](#api-reference) section above covers the essentials).
-- **[Source repository](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET)** — browse the code, track releases, and review history.
-- Found a bug or have a feature request? [Open an issue](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/issues) on GitHub.
-
-See [AGENTS.md](AGENTS.md) in the repository root for architecture notes and conventions for contributors.
-
-## Scope and Limitations
-
-- The following areas are not yet implemented: charts, SmartArt, OLE objects, and mathematical text.
-- Animations and slide transitions are not yet implemented.
-- Non-PPTX outputs (PDF, HTML, SVG, images) are not yet implemented.
-- VBA macros and digital signatures are not yet implemented.
-- Hyperlinks and action settings are not yet implemented.
-- Unknown XML parts encountered during load are preserved verbatim on save, so opening and
-  re-saving a file never strips content this library doesn't yet understand.
-- Saving currently always produces PPTX content, regardless of which output type is requested;
-  only PPTX is a genuinely working save target today.
-
-These limitations don't apply to
-[Aspose.Slides for .NET — Enterprise Edition](https://products.aspose.com/slides/net/), which
-adds broader export coverage (PDF, HTML, and images), chart and animation support, VBA and
-digital signature handling, and full feature completeness with commercial support.
-
-## Development and Testing
-
-```bash
-dotnet restore
-dotnet build --configuration Release
-dotnet test tests/Aspose.Slides.Foss.Tests --configuration Release
-dotnet test tests/Aspose.Slides.Foss.IntegrationTests --configuration Release
+Console.WriteLine($"slides: {reopened.Slides.Count}");
+Console.WriteLine($"shapes: {reopened.Slides[0].Shapes!.Count}");
+Console.WriteLine($"text:   {reread.TextFrame?.Text}");
 ```
 
-Continuous integration runs the same steps on Ubuntu and Windows via GitHub Actions
-([`ci.yml`](.github/workflows/ci.yml)), targeting `net9.0`.
+Output:
+
+```
+slides: 1
+shapes: 1
+text:   Hello from Aspose.Slides FOSS
+```
+
+A new `Presentation` is a 13-part package with one slide, one master, one layout and a slide size of
+`9144000 × 6858000` EMU — 4:3, `type="screen4x3"`. There is no API to change the slide size.
+
+### Why the `!`
+
+`IBaseSlide.Shapes` is declared `IShapeCollection?` and returns `null` for a slide that is not backed
+by a package part; a few other members are annotated the same way. The samples here use the
+null-forgiving operator so that they compile without warnings in a project with
+`<Nullable>enable</Nullable>`, which is the default for new .NET projects. Every sample on this page
+was compiled with nullable enabled and produced zero warnings.
+
+---
+
+## Examples
+
+Every example below was compiled and executed against this revision, and the values quoted after each
+one were read out of the `.pptx` it wrote by an independent ZIP/XML reader — not by asking the
+library to read its own file back.
+
+Three namespaces cover every sample on this page, and each sample below assumes all three:
+
+```csharp
+using Aspose.Slides.Foss;           // Presentation, the I* interfaces, ShapeType, FontData
+using Aspose.Slides.Foss.Drawing;   // Color, PointF
+using Aspose.Slides.Foss.Export;    // SaveFormat
+```
+
+`Color` and `PointF` are this library's own types in `Aspose.Slides.Foss.Drawing`; they are not the
+`System.Drawing` types of the same name, and neither namespace is in scope by default.
+
+Those three are this library's own namespaces. The samples also use `Console`, `DateTime`, `File`,
+`FileStream` and `MemoryStream`, which come from `System` and `System.IO`: `<ImplicitUsings>` brings
+both into scope and is on by default in a project from `dotnet new console` — the same default this
+page relies on for `Nullable` above. Turn implicit usings off and you add those two `using` lines
+yourself.
+
+### Text and formatting
+
+```csharp
+using var presentation = new Presentation();
+IAutoShape shape = presentation.Slides[0].Shapes!.AddAutoShape(
+    ShapeType.Rectangle, 50, 50, 400, 150);
+ITextFrame textFrame = shape.AddTextFrame("Formatted text")!;
+
+IParagraph paragraph = textFrame.Paragraphs[0];
+paragraph.ParagraphFormat.Alignment = TextAlignment.Center;
+
+IBasePortionFormat format = paragraph.Portions[0].PortionFormat!;
+format.FontHeight = 24;
+format.FontBold = NullableBool.True;
+format.LatinFont = new FontData("Verdana");
+format.FillFormat!.FillType = FillType.Solid;
+format.FillFormat.SolidFillColor.Color = Color.FromArgb(255, 0, 70, 127);
+
+presentation.Save("text.pptx", SaveFormat.Pptx);
+```
+
+In `ppt/slides/slide1.xml`: `<a:rPr b="1" sz="2400">`, `<a:latin typeface="Verdana"/>`,
+`<a:pPr algn="ctr">`.
+
+### Tables
+
+```csharp
+using var presentation = new Presentation();
+ITable table = presentation.Slides[0].Shapes!.AddTable(
+    50, 50, [150.0, 150.0], [40.0, 40.0]);
+
+table.Rows[0][0].TextFrame!.Text = "Region";
+table.Rows[0][1].TextFrame!.Text = "Revenue";
+table.Rows[1][0].TextFrame!.Text = "EMEA";
+table.Rows[1][1].TextFrame!.Text = "1,240";
+
+table.MergeCells(table.Rows[0][0], table.Rows[0][1], allowSplitting: false);
+
+presentation.Save("table.pptx", SaveFormat.Pptx);
+```
+
+Four `<a:tc>` cells, two of them carrying a merge attribute.
+
+### Pictures
+
+```csharp
+using var presentation = new Presentation();
+
+// from a byte array
+IPPImage image = presentation.Images.AddImage(File.ReadAllBytes("photo.png"));
+presentation.Slides[0].Shapes!.AddPictureFrame(
+    ShapeType.Rectangle, 50, 50, 200, 200, image);
+
+// or from a stream
+using FileStream stream = File.OpenRead("photo.png");
+IPPImage streamed = presentation.Images.AddImage(stream);
+
+presentation.Save("picture.pptx", SaveFormat.Pptx);
+```
+
+One `<a:blip r:embed="…">` in the slide and one part under `ppt/media/`. There is **no** overload
+that takes a file path — read the bytes yourself, as above.
+
+### Effects
+
+```csharp
+using var presentation = new Presentation();
+IAutoShape shape = presentation.Slides[0].Shapes!.AddAutoShape(
+    ShapeType.Rectangle, 50, 50, 300, 120);
+
+shape.FillFormat.FillType = FillType.Solid;
+shape.FillFormat.SolidFillColor.Color = Color.FromArgb(255, 30, 120, 200);
+
+IEffectFormat effects = shape.EffectFormat;
+effects.EnableOuterShadowEffect();
+effects.OuterShadowEffect!.BlurRadius = 10;
+effects.OuterShadowEffect.Distance = 5;
+
+presentation.Save("effects.pptx", SaveFormat.Pptx);
+```
+
+All eight effects were enabled one at a time, each into its own file, and each produced its element
+inside `<a:effectLst>`: `a:outerShdw`, `a:innerShdw`, `a:glow`, `a:softEdge`, `a:reflection`,
+`a:blur`, `a:prstShdw`, `a:fillOverlay`.
+
+### Notes and comments
+
+```csharp
+using var presentation = new Presentation();
+ISlide slide = presentation.Slides[0];
+
+INotesSlide notes = slide.NotesSlideManager.AddNotesSlide();
+notes.NotesTextFrame.Text = "Open with the revenue figures.";
+
+ICommentAuthor author = presentation.CommentAuthors.AddAuthor("Jane Smith", "JS");
+author.Comments.AddComment("Check these numbers.", slide, new PointF(2.0f, 2.0f), DateTime.UtcNow);
+
+presentation.Save("notes-comments.pptx", SaveFormat.Pptx);
+```
+
+Writes `ppt/notesSlides/notesSlide1.xml` with its `ppt/notesMasters/notesMaster1.xml`, and the
+classic comment pair `ppt/commentAuthors.xml` + `ppt/comments/comment1.xml`. It does **not** write
+the modern `ppt/threadedComments/` part — see [What it cannot do](#what-it-cannot-do).
+
+### Sections
+
+```csharp
+using var presentation = new Presentation();
+presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+
+presentation.Sections.AddSection("Introduction", presentation.Slides[0]);
+presentation.Sections.AddSection("Detail", presentation.Slides[1]);
+
+presentation.Save("sections.pptx", SaveFormat.Pptx);
+```
+
+Two `<p14:section>` elements in `ppt/presentation.xml`. A `Section` has no public constructor: it is
+created through `Sections.AddSection` or `Sections.AppendEmptySection`, which bind it to the
+presentation whose slides it divides.
+
+### Streams
+
+```csharp
+using var presentation = new Presentation();
+presentation.Slides[0].Shapes!.AddAutoShape(ShapeType.Rectangle, 10, 10, 100, 50);
+
+using var buffer = new MemoryStream();
+presentation.Save(buffer, SaveFormat.Pptx);
+
+buffer.Position = 0;
+using var reopened = new Presentation(buffer);
+```
+
+`Presentation` opens from a path or a `Stream`, with or without `ILoadOptions`, and `Save` has the
+matching overloads including a slide-subset one.
+
+---
+
+## What it can do
+
+Everything in this list was exercised through the public API and then confirmed by reading the XML
+inside the file that came out.
+
+- **Presentations** — create, open a path or a stream, save to a path or a stream, save a subset of
+  slides, `IDisposable` throughout.
+- **Slides** — add empty, insert, remove (the slide part is removed from the package, not just from
+  the list), clone, hide (`<p:sld show="0">`), enumerate; masters and layouts are enumerable and a
+  master can be cloned.
+- **Sections** — add, append, remove, remove with slides, reorder with slides.
+- **Shapes** — AutoShapes for 187 of the 189 `ShapeType` values: each of the 187 was written into its
+  own file and each produced its own distinct `<a:prstGeom prst="…">`. The two exceptions are
+  `ShapeType.NotDefined` and `ShapeType.Custom`, which have no preset to write; `AddAutoShape`
+  accepts them without complaint and the shape comes out as `prst="rect"`. Also picture frames,
+  tables, connectors bound to shapes by connection site, `Reorder` for z-order, and adjust values on
+  geometry shapes.
+- **Text** — text frames, paragraphs, portions; character formatting (bold, italic, underline,
+  strikethrough, size, spacing, caps, latin/east-asian/complex-script/symbol fonts), paragraph
+  formatting (alignment, indent, margins, spacing, symbol and numbered bullets), text-frame
+  formatting (margins, wrap, anchor, autofit, columns, rotation, vertical text).
+- **Fill** — solid, gradient (stops, direction, shape, angle, tile flip), pattern, picture (with
+  crop, stretch, tile and fill mode), no-fill; the same fill model applies to shapes, lines, text
+  portions and table cells.
+- **Lines** — width, dash style and custom dash pattern, cap, join, miter limit, compound style,
+  alignment, and arrowheads at both ends with style, width and length.
+- **Effects** — outer shadow, inner shadow, glow, soft edge, reflection, blur, preset shadow, fill
+  overlay.
+- **3-D** — bevel top and bottom, extrusion height and colour, contour width and colour, material
+  preset, a camera with a preset, field of view, zoom and rotation, and a light rig with a preset,
+  direction and rotation.
+- **Tables** — rows, columns, cells, cell merge (splitting optional), cell fill, the six cell
+  borders, cell margins and anchoring, and a table style preset written as `<a:tableStyleId>`.
+- **Pictures** — embed from a byte array or a stream, deduplicated by content.
+- **Notes** — a notes slide per slide, written with the notes master it requires, plus footer text,
+  footer visibility and slide-number visibility on the notes slide.
+- **Comments** — authors, comments with position and timestamp, on the classic comment list.
+- **Document properties** — core, extended and custom; `docProps/core.xml`, `docProps/app.xml` and
+  `docProps/custom.xml` are all written.
+- **Unknown parts** — parts the library does not model are carried through a load and a save
+  unchanged.
+
+---
+
+## What it cannot do
+
+This section is the point of this file. Nothing below is a "coming soon"; it is what the API does
+not contain today.
+
+### Not in the public API
+
+| | |
+|---|---|
+| Charts | `IShapeCollection.AddChart` does not exist |
+| SmartArt, OLE objects, video, audio | no `AddSmartArt` / `AddOleObjectFrame` / `AddVideoFrame` / `AddAudioFrame` |
+| Mathematical text | not modelled — no `a:m` / `oMath` element is read or written |
+| Group shapes | no `AddGroupShape`. `IGroupShape` is declared but nothing implements it, and the public `GroupShape` class adds nothing to `Shape` — so no shape can hold child shapes |
+| Animations and slide transitions | no `ISlide.Timeline`, no `ISlide.SlideShowTransition` |
+| Hyperlinks | no `HyperlinkClick` on a shape or on a text portion. `IHyperlinkContainer` is declared and many shape types implement it, but it has no members at all — implementing it gives you nothing |
+| Slide backgrounds | no `ISlide.Background` |
+| Themes | no `IPresentation.MasterTheme` |
+| Slide size | no `IPresentation.SlideSize` — a new deck is 4:3 and cannot be changed |
+| Adding or cloning a layout | `ILayoutSlideCollection` declares an indexer, `GetByType` and two collection views — nothing that adds or clones. A new deck has exactly one layout and its `LayoutType` is `Custom`, so `GetByType` answers only for `Custom` and returns `null` for every other value. A Title or Title-and-Content layout can only come from a deck you opened |
+| Threaded comments | replies are held in memory; no `ppt/threadedComments/` part is written |
+| Encryption and protection | no `IPresentation.Protect` |
+| Rendering and conversion | no PDF, HTML, SVG, image or text export of any kind |
+| VBA macros, digital signatures | not modelled |
+| Reordering slides | `IShapeCollection.Reorder` exists for shapes; `ISlideCollection` has no equivalent |
+
+### Save formats
+
+`SaveFormat` declares **21** values. `Save` writes **three** of them and raises
+`NotSupportedException` for the other **eighteen** — it never writes a package under a name that
+claims to be a format it did not produce.
+
+| Written | Refused |
+|---|---|
+| `Pptx`, `Ppsx`, `Potx` | `Ppt`, `Pdf`, `Xps`, `Tiff`, `Odp`, `Pptm`, `Ppsm`, `Potm`, `Html`, `Swf`, `Otp`, `Pps`, `Pot`, `Fodp`, `Gif`, `Html5`, `Md`, `Xml` |
+
+The three that are written are three genuinely different packages, each with its own main-part
+content type:
+
+```
+Pptx  -> application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml
+Ppsx  -> application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml
+Potx  -> application/vnd.openxmlformats-officedocument.presentationml.template.main+xml
+```
+
+The refusal says what to do instead:
+
+```
+Save format 'Pdf' is not supported: it is not an Office Open XML presentation package and this
+library does not render or convert. Supported formats: Pptx, Ppsx, Potx.
+
+Save format 'Pptm' is not supported: a macro-enabled package requires a VBA project part, which
+this library does not write. Supported formats: Pptx, Ppsx, Potx.
+```
+
+Give the file the extension that matches the format you asked for — `.pptx`, `.ppsx`, `.potx`.
+Office keys off the name as well as the content type, and a file whose two disagree may be refused.
+
+### What "round-trip" does and does not mean
+
+Opening a deck and saving it again preserves every part, and preserves the great majority of them
+byte for byte. It does not rewrite nothing at all. Measured on this repository's own 46-part
+PowerPoint-authored fixture (`tests/test_data/PowerPointDeck.pptx`, `<Application>Microsoft Office
+PowerPoint</Application>`):
+
+| | |
+|---|---|
+| Parts in / out | 46 / 46 |
+| Parts dropped | 0 |
+| Parts added | 0 |
+| Parts byte-identical afterwards | 42 of 46 |
+| Parts rewritten | `[Content_Types].xml`, `docProps/app.xml`, `docProps/core.xml`, `ppt/presentation.xml` |
+| Slide text runs | identical, in order |
+
+`docProps/core.xml` is rewritten because saving stamps a modification time; `docProps/app.xml` is
+regenerated from the presentation; the other two are rebuilt from the package model. Parts this
+library has no model for — `presProps`, `viewProps`, `tableStyles`, thumbnails, extra themes, unused
+layouts — are among the 42 that come back unchanged. That is a specific, measured claim about one
+real deck, and it is deliberately narrower than "full fidelity".
+
+### Text language
+
+A deck written by this library contains no `lang=` attribute anywhere and no `<a:rPr>` on a portion
+that was never formatted. PowerPoint will apply the authoring machine's default language rather than
+a language the file states.
+
+---
+
+## Choosing an edition
+
+There are four editions of this library and they are **not** interchangeable. Three of them —
+.NET, Java and C++ — are the same design in three languages; Python is a larger and different one.
+The table below was measured on 2026-08-16 by running each edition and reading the XML in the file
+it produced.
+
+| | .NET | Java | C++ | Python |
+|---|---|---|---|---|
+| Create, open, round-trip, save | yes | yes | yes | yes |
+| Text, tables, connectors, fills, all 8 effects, 3-D | yes | yes | yes | yes |
+| Notes and classic comments | yes | yes | yes | yes |
+| Threaded comment part | no | yes | no | yes |
+| Save to a stream | yes | yes | **no** | yes |
+| Add a picture from a stream | yes | yes | **no** | yes |
+| Sections | **yes** | no | no | no |
+| Charts | no | no | no | **yes** |
+| Animations | no | no | no | **yes** |
+| Slide transitions | no | no | no | **yes** |
+| Themes | no | no | no | **yes** |
+| Slide backgrounds | no | no | no | **yes** |
+| Group shapes | no | no | no | **yes** |
+| Hyperlinks | no | no | no | **yes** |
+| Markdown export | no | no | no | **yes** |
+| Formats `Save` writes | 3 | 3 | 6 | 7 |
+| Default slide size of a new deck | 4:3 | 4:3 | 4:3 | **16:9** |
+| Layouts in a new deck | 1 | 1 | 1 | **11** |
+
+The short version: **if you need charts, animations, transitions, themes, backgrounds, group shapes
+or hyperlinks, none of them exist in this edition — use the Python one.** If you need sections, this
+is the only edition that has them. Code written against the Python examples does not port to the
+other three, and a new deck is not even the same shape.
+
+- [Aspose.Slides FOSS for Java](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Java)
+- [Aspose.Slides FOSS for C++](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp)
+- [Aspose.Slides FOSS for Python](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-Python)
+
+---
+
+## Documentation and support
+
+This library mirrors the naming of the commercial **Aspose.Slides for .NET** product, so that
+product's documentation is usually the fastest way to understand what a shared type name means.
+It describes a much larger API: check the tables above before relying on anything you read there.
+
+- [Aspose.Slides for .NET — product page](https://products.aspose.com/slides/net/)
+- [Documentation](https://docs.aspose.com/slides/net/)
+- [API reference](https://reference.aspose.com/slides/net/)
+- [Knowledge base](https://kb.aspose.com/slides/net/)
+- [Free support forum](https://forum.aspose.com/c/slides/11)
+
+**When you want the commercial product instead of this one:** if you need to render or convert —
+PDF, images, HTML, thumbnails — or need charts, SmartArt, animations, OLE objects or macro-enabled
+files, or need a supported product with a licence, none of that is here and none of it is planned in
+this repository. This library is the right choice when you are reading and writing `.pptx` and want
+an MIT-licensed dependency with no other dependencies at all.
+
+Bugs and feature requests for **this** library belong in
+[this repository's issue tracker](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/issues),
+not in the commercial product's forum.
+
+---
+
+## Contributing
+
+Pull requests are welcome. Read
+[CONTRIBUTING.md](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/CONTRIBUTING.md)
+first — it explains the build, the three test suites, and the one rule that is specific to this
+project: **a writer fix ships with a test that asserts on the produced `.pptx` package, not on what
+the library reads back.**
+
+By participating you agree to the
+[Code of Conduct](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/CODE_OF_CONDUCT.md).
+Changes are recorded in
+[CHANGELOG.md](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/CHANGELOG.md).
+
+## Security
+
+Do not report a vulnerability in a public issue. See
+[SECURITY.md](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/SECURITY.md)
+for the reporting route.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). The MIT License permits use, copying,
-modification, distribution, sublicensing, and commercial use, provided its copyright and
-permission notice are retained. The software is provided without warranty.
+MIT — see [LICENSE](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/LICENSE).
+Copyright (c) 2026 Aspose Pty Ltd.

@@ -12,6 +12,7 @@ public sealed class ParagraphCollection : ISlideComponent, IParagraphCollection,
     private static readonly XNamespace ANs = "http://schemas.openxmlformats.org/drawingml/2006/main";
     private static readonly XName AP = ANs + "p";
     private static readonly XName AR = ANs + "r";
+    private static readonly XName AT = ANs + "t";
 
     private readonly List<IParagraph> _paragraphs = [];
     private XElement? _txBodyElement;
@@ -107,10 +108,78 @@ public sealed class ParagraphCollection : ISlideComponent, IParagraphCollection,
         _txBodyElement is not null ? GetParagraphs().Count : _paragraphs.Count;
 
     /// <inheritdoc/>
-    public void Add(IParagraph value) => _paragraphs.Add(value);
+    /// <remarks>
+    /// When the collection is backed by a text body, the paragraph is written into it. The backing
+    /// XML is what <see cref="Count"/> and the indexer read, so a paragraph kept only in the list
+    /// beside it would be invisible to the caller that added it and absent from the saved file.
+    /// </remarks>
+    public void Add(IParagraph value)
+    {
+        if (_txBodyElement is null)
+        {
+            _paragraphs.Add(value);
+            return;
+        }
+
+        Attach(value, index: null);
+    }
 
     /// <inheritdoc/>
-    public void Insert(int index, IParagraph value) => _paragraphs.Insert(index, value);
+    public void Insert(int index, IParagraph value)
+    {
+        if (_txBodyElement is null)
+        {
+            _paragraphs.Insert(index, value);
+            return;
+        }
+
+        Attach(value, index);
+    }
+
+    /// <summary>
+    /// Writes a paragraph into the backing text body at <paramref name="index"/>, or at the end when
+    /// no index is given, and binds it to the element it was written as.
+    /// </summary>
+    private void Attach(IParagraph value, int? index)
+    {
+        var element = value is Paragraph paragraph ? paragraph.ElementForAttaching() : ElementFor(value);
+
+        // An element that already has a parent is written as a copy: XLinq would otherwise move it
+        // out of the paragraph it belongs to.
+        if (element.Parent is not null)
+            element = new XElement(element);
+
+        var siblings = _txBodyElement!.Elements(AP).ToList();
+        if (index is int position && position >= 0 && position < siblings.Count)
+            siblings[position].AddBeforeSelf(element);
+        else
+            _txBodyElement.Add(element);
+
+        (value as Paragraph)?.BindTo(element, _txBodyElement, _slidePart, _parentSlide);
+        _slidePart?.Save();
+    }
+
+    /// <summary>
+    /// Builds an <c>&lt;a:p&gt;</c> for a paragraph implemented outside this library, which has no
+    /// element of its own to write.
+    /// </summary>
+    private static XElement ElementFor(IParagraph value)
+    {
+        var element = new XElement(AP);
+
+        var portions = value.Portions;
+        if (portions is not null && portions.Count > 0)
+        {
+            for (var i = 0; i < portions.Count; i++)
+                element.Add(new XElement(AR, new XElement(AT, portions[i].Text ?? string.Empty)));
+        }
+        else if (!string.IsNullOrEmpty(value.Text))
+        {
+            element.Add(new XElement(AR, new XElement(AT, value.Text)));
+        }
+
+        return element;
+    }
 
     /// <inheritdoc/>
     public void Clear() => _paragraphs.Clear();

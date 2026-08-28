@@ -1,8 +1,44 @@
 <Project>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!--
+    THE RELEASE VERSION IS DEFINED HERE AND NOWHERE ELSE.
+
+    `dotnet pack` reads it, the assembly and file version attributes are generated from it, and the
+    CI workflow reads it back out of the file name of the package it just built rather than
+    repeating it.
+
+    Editing this property is one step of cutting a release and not the whole of it: README.md,
+    SECURITY.md and CHANGELOG.md all currently state that no package has been published, and
+    README.md is packed inside the .nupkg as its nuget.org page. The full list is under "Releasing"
+    in CONTRIBUTING.md.
+
+    The scheme is CalVer: <two-digit year>.<month>.<patch>, matching the other language editions of
+    this library. The patch component starts at 0 and increments for further releases made inside
+    the same calendar month.
+  -->
+  <PropertyGroup>
+    <Version>26.8.0</Version>
+  </PropertyGroup>
+
+  <!--
+    Identity shared by every project. Only the library is packable, but keeping this here means the
+    copyright, the owner and the repository URL are stated once.
+  -->
+  <PropertyGroup>
+    <Authors>Aspose Pty Ltd</Authors>
+    <Company>Aspose Pty Ltd</Company>
+    <Copyright>Copyright (c) 2026 Aspose Pty Ltd</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
 </Project>
