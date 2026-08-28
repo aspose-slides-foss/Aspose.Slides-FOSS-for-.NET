@@ -15,6 +15,45 @@ produce PDF, HTML or images, and the things it cannot do are listed in full unde
 
 ---
 
+## At a glance
+
+```mermaid
+flowchart TD
+  subgraph StartingPoints["Starting Points"]
+    direction TB
+    i1["An existing PPTX presentation"]
+  end
+  PRODUCT["Aspose.Slides FOSS for .NET"]
+  subgraph Capabilities["Core Capabilities"]
+    direction LR
+    subgraph capl[" "]
+      direction TB
+      c1["Presentation, slide, and section creation and editing"]
+      c2["Shape creation (AutoShape, Table, Connector, PictureFrame)"]
+      c3["Text formatting (TextFrame, Paragraph, Portion)"]
+      c4["Fill, line, and 3D shape styling"]
+    end
+    subgraph capr[" "]
+      direction TB
+      c5["Visual effects (shadow, glow, blur, reflection)"]
+      c6["Document properties (core, app, custom)"]
+      c7["Speaker notes and classic comments"]
+      c8["Image embedding"]
+    end
+  end
+  subgraph Outputs["Outputs"]
+    direction TB
+    o1["PPTX, PPSX or POTX package"]
+  end
+  StartingPoints --> PRODUCT --> Capabilities --> Outputs
+```
+
+The diagram is an overview, not a contract. Each box is expanded, with the XML it produces, under
+[What it can do](#what-it-can-do); the boundaries are under
+[What it cannot do](#what-it-cannot-do).
+
+---
+
 ## Requirements
 
 | | |
@@ -336,6 +375,7 @@ not contain today.
 |---|---|
 | Charts | `IShapeCollection.AddChart` does not exist |
 | SmartArt, OLE objects, video, audio | no `AddSmartArt` / `AddOleObjectFrame` / `AddVideoFrame` / `AddAudioFrame` |
+| Mathematical text | not modelled — no `a:m` / `oMath` element is read or written |
 | Group shapes | no `AddGroupShape`. `IGroupShape` is declared but nothing implements it, and the public `GroupShape` class adds nothing to `Shape` — so no shape can hold child shapes |
 | Animations and slide transitions | no `ISlide.Timeline`, no `ISlide.SlideShowTransition` |
 | Hyperlinks | no `HyperlinkClick` on a shape or on a text portion. `IHyperlinkContainer` is declared and many shape types implement it, but it has no members at all — implementing it gives you nothing |
