@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/LICENSE)
-[![.NET 9.0](https://img.shields.io/badge/.NET-9.0-512BD4.svg)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com/)
 
 An MIT-licensed .NET library that creates, reads and edits PowerPoint `.pptx` presentations by
 building the Office Open XML package itself — no PowerPoint installation, no COM interop, no native
@@ -58,13 +58,13 @@ The diagram is an overview, not a contract. Each box is expanded, with the XML i
 
 | | |
 |---|---|
-| Target framework | `net9.0` |
+| Target frameworks | `net8.0` and `net10.0` |
 | Package dependencies | none — the library declares no `PackageReference` |
 | Native dependencies | none — no `DllImport`, no `LibraryImport`, no `unsafe` code |
 | Platforms | the CI workflow builds and runs every test on `ubuntu-latest`, `windows-latest` and `macos-latest` |
 
-A `net9.0` assembly also loads on later .NET runtimes by roll-forward, but CI does not exercise
-that, so this file does not promise it.
+Both are built, tested and shipped in the package; CI runs the whole suite on each. .NET 8 and
+.NET 10 are the two long-term releases still in support.
 
 ## Installation
 

@@ -40,13 +40,14 @@ jobs:
       # One platform failing is a fact worth having about the other two, so let them finish.
       fail-fast: false
       matrix:
-        # The library targets net9.0 and has no platform-specific code, but "no platform-specific
-        # code" is a claim, and writing a package on a case-sensitive file system with forward
-        # slashes is exactly where such a claim breaks. All three platforms GitHub hosts are run.
+        # The library has no platform-specific code, but "no platform-specific code" is a claim,
+        # and writing a package on a case-sensitive file system with forward slashes is exactly
+        # where such a claim breaks. All three platforms GitHub hosts are run.
         #
-        # There is one entry for the runtime, because the project declares one target framework.
-        # A net9.0 assembly also loads on later runtimes by roll-forward, but this workflow does
-        # not exercise that, and so the README does not promise it.
+        # There is no target-framework axis, and that is deliberate. The projects multi-target, so
+        # one `dotnet test` builds and runs every framework in a single invocation; a matrix axis
+        # would multiply the jobs, fight the solution-wide test command, and split each suite's
+        # results across jobs where the step below could no longer add them up.
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -56,9 +57,15 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          # Pinned to the feature band the project targets. Nothing here depends on a newer SDK,
-          # and a floating SDK turns an unrelated toolchain change into a red build on this repo.
-          dotnet-version: '9.0.x'
+          # Both bands the projects target, pinned rather than floating: a floating SDK turns an
+          # unrelated toolchain change into a red build on this repo.
+          #
+          # The 10.0 SDK alone would compile net8.0 perfectly well — but it does not carry the
+          # .NET 8 runtime, and the net8.0 half of the test run has to execute. Installing 8.0.x
+          # is what makes that possible; dropping it would build green and fail at test time.
+          dotnet-version: |
+            8.0.x
+            10.0.x
         # No `cache:` — that input needs NuGet lock files, which this repository does not use.
 
       - name: Restore
@@ -99,47 +106,65 @@ jobs:
       # failed nothing, and must have run at least the number of tests recorded in CONTRIBUTING.md.
       # Those numbers are floors: adding tests is expected and passes, losing them is what fails.
       #
+      # THE PROJECTS MULTI-TARGET, SO EACH SUITE WRITES ONE .trx PER TARGET FRAMEWORK, and this
+      # step reads all of them rather than the newest. Reading only the newest is what it used to
+      # do, and under multi-targeting that is a check with a hole in the middle: one framework's
+      # leg could stop running entirely and the count from the other would still clear the floor.
+      # The floors are per suite across every framework, and the number of .trx files is asserted
+      # too — a sum alone would still pass if a whole framework vanished and the survivor grew.
+      #
       # pwsh rather than bash because this job also runs on Windows, and it is installed on all
       # three of GitHub's runner images.
       - name: Check that every suite ran
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Per suite: the floor across all target frameworks, and how many .trx files there must
+          # be. The framework count comes from the project files, so adding a framework without
+          # updating it here fails loudly rather than being averaged away.
+          $expectedRuns = 2
           $floors = [ordered]@{
-            'Aspose.Slides.Foss.Tests'            = 1954
-            'Aspose.Slides.Foss.IntegrationTests' = 97
-            'Aspose.Slides.Foss.ConformanceTests' = 80
+            'Aspose.Slides.Foss.Tests'            = 3908
+            'Aspose.Slides.Foss.IntegrationTests' = 194
+            'Aspose.Slides.Foss.ConformanceTests' = 160
           }
           $problems = @()
           foreach ($suite in $floors.Keys) {
             $floor = $floors[$suite]
             $dir = Join-Path 'tests' (Join-Path $suite 'TestResults')
-            $trx = $null
+            $trxFiles = @()
             if (Test-Path -LiteralPath $dir) {
-              $trx = Get-ChildItem -LiteralPath $dir -Filter '*.trx' |
-                Sort-Object LastWriteTime | Select-Object -Last 1
+              $trxFiles = @(Get-ChildItem -LiteralPath $dir -Filter '*.trx')
             }
-            if ($null -eq $trx) {
+            if ($trxFiles.Count -eq 0) {
               $problems += "$suite : no .trx under $dir - the suite did not run at all"
               continue
             }
-            $counters = ([xml](Get-Content -Raw -LiteralPath $trx.FullName)).TestRun.ResultSummary.Counters
-            $passed = [int]$counters.passed
-            $notPassed = [int]$counters.failed + [int]$counters.error + [int]$counters.timeout + [int]$counters.aborted
-            $notRun = [int]$counters.total - [int]$counters.executed
-            Write-Host ('{0,-36} passed {1,5}   not passed {2,4}   not executed {3,4}   floor {4}' -f $suite, $passed, $notPassed, $notRun, $floor)
+            if ($trxFiles.Count -ne $expectedRuns) {
+              $problems += "$suite : $($trxFiles.Count) .trx file(s), expected $expectedRuns - one per target framework"
+            }
+            $passed = 0
+            $notPassed = 0
+            $notRun = 0
+            foreach ($trx in $trxFiles) {
+              $counters = ([xml](Get-Content -Raw -LiteralPath $trx.FullName)).TestRun.ResultSummary.Counters
+              $passed += [int]$counters.passed
+              $notPassed += [int]$counters.failed + [int]$counters.error + [int]$counters.timeout + [int]$counters.aborted
+              $notRun += [int]$counters.total - [int]$counters.executed
+            }
+            Write-Host ('{0,-36} runs {1}   passed {2,5}   not passed {3,4}   not executed {4,4}   floor {5}' -f $suite, $trxFiles.Count, $passed, $notPassed, $notRun, $floor)
             if ($notPassed -gt 0) {
               $problems += "$suite : $notPassed test(s) did not pass"
             }
             if ($passed -lt $floor) {
-              $problems += "$suite : $passed tests passed, fewer than the $floor recorded in CONTRIBUTING.md"
+              $problems += "$suite : $passed tests passed across $($trxFiles.Count) run(s), fewer than the $floor recorded in CONTRIBUTING.md"
             }
           }
           if ($problems.Count -gt 0) {
             foreach ($problem in $problems) { Write-Host "FAILED  $problem" }
             exit 1
           }
-          Write-Host 'Every suite ran, in full.'
+          Write-Host 'Every suite ran, on every target framework, in full.'
 
       - name: Upload test results
         # Test results are most wanted exactly when the step above failed.
@@ -163,7 +188,12 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '9.0.x'
+          # Both, for the same reason as in the test job: the consumer check below runs the
+          # packaged assembly on each framework the package ships, and running net8.0 needs the
+          # .NET 8 runtime present.
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore
@@ -181,22 +211,33 @@ jobs:
           --configuration Release
           --output ${{ github.workspace }}/artifacts/package
 
-      # The version is defined once, in Directory.Build.props. It is read back off the file that
-      # was actually produced instead of being repeated here, so this workflow cannot disagree with
-      # the package it just built.
-      - name: Read the version off the package
+      # The version and the identifier are defined once, in the project files, and are asked of
+      # MSBuild rather than parsed out of anything.
+      #
+      # This step used to read the version off the produced file name by stripping the package
+      # identifier as a literal prefix. That could not survive the identifier changing: bash prefix
+      # removal on a non-match returns the string unchanged, so the version silently became the
+      # whole file name and the failure surfaced several steps later as a NuGet parse error naming
+      # neither this step nor the rename. Asking MSBuild cannot fail that way.
+      - name: Read the identity from the project
         id: version
         run: |
           set -euo pipefail
-          nupkg=$(ls artifacts/package/*.nupkg)
-          version=$(basename "$nupkg" .nupkg)
-          version=${version#Aspose.Slides.Foss.}
+          version=$(dotnet msbuild src/Aspose.Slides.Foss -getProperty:Version | tr -d '[:space:]')
+          package_id=$(dotnet msbuild src/Aspose.Slides.Foss -getProperty:PackageId | tr -d '[:space:]')
+          test -n "$version"
+          test -n "$package_id"
+          # The package that was actually produced must be the one those two describe. If it is
+          # not, everything downstream is operating on a file nobody asked for.
+          test -f "artifacts/package/${package_id}.${version}.nupkg"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Packed version $version"
+          echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
+          echo "Packed $package_id $version"
 
       # Printed into the log so a reviewer can see what shipped without downloading anything, and
       # so a file that quietly stopped being packed — the readme, the licence, the XML docs — shows
-      # up as a diff in the log of two runs.
+      # up as a diff in the log of two runs. This is a listing and not a check; the checks are the
+      # step below it.
       - name: List what is inside the package
         run: |
           set -euo pipefail
@@ -205,22 +246,40 @@ jobs:
             unzip -l "$pkg"
           done
 
+      # The listing above is for a human. This is the gate: it parses the generated .nuspec, checks
+      # every field the package page is built from, asserts that each framework the manifest
+      # declares actually carries an assembly and its documentation, and lints the packed readme
+      # for the things nuget.org discards without failing — an image from a host outside its
+      # allow-list, a relative link, a Mermaid fence, an install command naming a different
+      # package. Every one of those would otherwise ship green and be visible only on the live
+      # package page.
+      - name: Check the package
+        run: python3 .github/scripts/check_package.py artifacts/package/*.nupkg
+
       # Everything above this point tests the project. This tests the package: a throwaway console
-      # app that resolves Aspose.Slides.Foss from the folder just packed, writes a presentation and
-      # reads it back. A package can build cleanly and still be unusable — an assembly under a path
-      # no consumer resolves, a target framework nothing matches — and only restoring it from a
-      # feed shows that.
+      # app that resolves the package from the folder just packed, writes a presentation and reads
+      # it back. A package can build cleanly and still be unusable — an assembly under a path no
+      # consumer resolves, a target framework nothing matches — and only restoring it from a feed
+      # shows that.
+      #
+      # It runs once per shipped framework, and the framework is pinned explicitly. Left to itself
+      # `dotnet new console` takes the newest installed SDK's default, so the older `lib/` folder
+      # would be asserted present by the step above and never actually resolved by anything. A
+      # package can carry an assembly that no consumer on that framework can load.
       - name: Consume the package from a throwaway project
         # The version reaches the script through the environment rather than by being pasted into
-        # it. It comes from a file name, and a file name comes from a property a pull request can
-        # edit; interpolating one straight into a shell is how that becomes command execution.
+        # it. It comes from a project property a pull request can edit, and interpolating one
+        # straight into a shell is how that becomes command execution.
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          PACKAGE_ID: ${{ steps.version.outputs.package_id }}
         run: |
           set -euo pipefail
+          for tfm in net8.0 net10.0; do
+          echo "== consuming $PACKAGE_ID $VERSION on $tfm"
           work="$(mktemp -d)"
           cd "$work"
-          dotnet new console --output . > /dev/null
+          dotnet new console --framework "$tfm" --output . > /dev/null
           cat > nuget.config <<XML
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
@@ -231,27 +290,39 @@ jobs:
           </configuration>
           XML
           cat > Program.cs <<'CSHARP'
+          using System.IO.Compression;
+          using System.Xml.Linq;
           using Aspose.Slides.Foss;
           using Aspose.Slides.Foss.Export;
 
           using (var prs = new Presentation())
           {
-              var shape = prs.Slides[0].Shapes.AddAutoShape(ShapeType.Rectangle, 10, 10, 200, 60);
+              var shape = prs.Slides[0].Shapes!.AddAutoShape(ShapeType.Rectangle, 10, 10, 200, 60);
               shape.AddTextFrame("packaged");
               prs.Save("smoke.pptx", SaveFormat.Pptx);
           }
 
-          var written = new FileInfo("smoke.pptx").Length;
-          if (written == 0)
+          // Asserted against the XML inside the file that was produced, never against what the
+          // library says when asked to read its own output back. A writer that emits the wrong
+          // thing and a reader that reads it back agree with each other, and both pass.
+          using var package = ZipFile.OpenRead("smoke.pptx");
+          var presentationPart = package.GetEntry("ppt/presentation.xml")
+              ?? throw new Exception("the package produced a file with no ppt/presentation.xml");
+          var p = XNamespace.Get("http://schemas.openxmlformats.org/presentationml/2006/main");
+          var slideIds = XDocument.Load(presentationPart.Open())
+              .Descendants(p + "sldId").Count();
+          if (slideIds != 1)
           {
-              throw new Exception("the package wrote an empty file");
+              throw new Exception($"expected one registered slide, the file declares {slideIds}");
           }
 
-          using var reopened = new Presentation("smoke.pptx");
-          Console.WriteLine($"wrote and reopened smoke.pptx: {written} bytes, {reopened.Slides.Count} slide(s), {reopened.Slides[0].Shapes.Count} shape(s)");
+          Console.WriteLine($"wrote smoke.pptx: {new FileInfo("smoke.pptx").Length} bytes, "
+              + $"{package.Entries.Count} parts, {slideIds} registered slide(s)");
           CSHARP
-          dotnet add package Aspose.Slides.Foss --version "$VERSION"
+          dotnet add package "$PACKAGE_ID" --version "$VERSION"
           dotnet run --configuration Release
+          cd - > /dev/null
+          done
 
       # A machine-readable dependency list, in CycloneDX form. Two of them: one for the package
       # that ships, whose dependency list is the thing a consumer inherits, and one for the whole
@@ -267,9 +338,9 @@ jobs:
           set -euo pipefail
           dotnet dotnet-CycloneDX src/Aspose.Slides.Foss/Aspose.Slides.Foss.csproj \
             --output "$GITHUB_WORKSPACE/artifacts/sbom" \
-            --filename Aspose.Slides.Foss.cdx.json \
+            --filename Aspose.Slides.FOSS.cdx.json \
             --output-format Json \
-            --set-name Aspose.Slides.Foss \
+            --set-name Aspose.Slides.FOSS \
             --set-version "$VERSION" \
             --set-type Library \
             --exclude-test-projects

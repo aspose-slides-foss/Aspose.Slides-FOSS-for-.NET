@@ -1,7 +1,12 @@
 <Project>
 
+  <!--
+    No TargetFramework here, and that absence is deliberate rather than an omission. Every project
+    declares `TargetFrameworks`, plural, in its own file. A singular `TargetFramework` set at this
+    level silently overrides the plural one below it: the build succeeds, the tests run, and the
+    package ships a single framework with nothing reporting that the others were dropped.
+  -->
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -11,20 +16,21 @@
     THE RELEASE VERSION IS DEFINED HERE AND NOWHERE ELSE.
 
     `dotnet pack` reads it, the assembly and file version attributes are generated from it, and the
-    CI workflow reads it back out of the file name of the package it just built rather than
-    repeating it.
+    workflows ask MSBuild for it — `dotnet msbuild src/Aspose.Slides.Foss -getProperty:Version` —
+    rather than parsing it back out of a file name. Parsing the file name is what the CI workflow
+    used to do, and it could not survive a change of package identifier: the strip was a literal
+    prefix, and a prefix that no longer matches leaves the string untouched instead of failing.
 
     Editing this property is one step of cutting a release and not the whole of it: README.md,
-    SECURITY.md and CHANGELOG.md all currently state that no package has been published, and
-    README.md is packed inside the .nupkg as its nuget.org page. The full list is under "Releasing"
-    in CONTRIBUTING.md.
+    SECURITY.md and CHANGELOG.md all currently state that no package has been published. The full
+    list is under "Releasing" in CONTRIBUTING.md.
 
     The scheme is CalVer: <two-digit year>.<month>.<patch>, matching the other language editions of
     this library. The patch component starts at 0 and increments for further releases made inside
     the same calendar month.
   -->
   <PropertyGroup>
-    <Version>26.8.0</Version>
+    <Version>26.9.0</Version>
   </PropertyGroup>
 
   <!--
@@ -32,7 +38,7 @@
     copyright, the owner and the repository URL are stated once.
   -->
   <PropertyGroup>
-    <Authors>Aspose Pty Ltd</Authors>
+    <Authors>Aspose</Authors>
     <Company>Aspose Pty Ltd</Company>
     <Copyright>Copyright (c) 2026 Aspose Pty Ltd</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

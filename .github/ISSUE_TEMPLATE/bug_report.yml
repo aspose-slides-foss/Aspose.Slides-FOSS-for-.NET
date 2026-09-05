@@ -34,7 +34,7 @@ body:
       description: >
         The commit SHA you built, or the package version if you installed one. `git rev-parse HEAD`
         prints the SHA.
-      placeholder: "e.g. 0a1b2c3, or 26.8.0"
+      placeholder: "e.g. 0a1b2c3, or 26.9.0"
     validations:
       required: true
 
@@ -43,7 +43,7 @@ body:
     attributes:
       label: .NET runtime and operating system
       description: The output of `dotnet --info`, abbreviated, is ideal.
-      placeholder: "e.g. .NET 9.0.3 on Ubuntu 24.04 x64"
+      placeholder: "e.g. .NET 10.0.0 on Ubuntu 24.04 x64"
     validations:
       required: true
 

@@ -1,10 +1,28 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!--
+      Transitive pinning is on so that a version listed below applies to a package that arrives
+      through somebody else's dependency as well as to one referenced directly. It is switched on
+      for exactly one package, System.IO.Packaging, and the reason is in the comment beside it.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
     <PackageVersion Include="DocumentFormat.OpenXml" Version="3.1.0" />
+    <!--
+      Not referenced by anything here. It arrives transitively through DocumentFormat.OpenXml, and
+      the version that resolves by default, 8.0.0, carries two high-severity advisories
+      (GHSA-f32c-w444-8ppv, GHSA-qj66-m88j-hmgj). 8.0.1 is the patched release.
+
+      This became a build failure rather than a warning when the projects moved to net8.0/net10.0:
+      targeting .NET 10 changes NuGet's audit default from `direct` to `all`, so a transitive
+      package is audited where before it was not, and `TreatWarningsAsErrors` turns NU1903 into an
+      error. The advisory was equally true before; nothing was looking. Pinned rather than
+      suppressed for that reason.
+    -->
+    <PackageVersion Include="System.IO.Packaging" Version="8.0.1" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />

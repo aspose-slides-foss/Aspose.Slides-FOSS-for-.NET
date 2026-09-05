@@ -23,7 +23,8 @@ and reads the XML.
 
 ## Prerequisites
 
-The .NET 9.0 SDK, and nothing else. The library has no package dependencies and no native ones; the
+The .NET 10.0 SDK, and nothing else — it builds both target frameworks. Running the tests needs
+the .NET 8 runtime as well, because the suites execute on both. The library has no package dependencies and no native ones; the
 test projects pull xunit, `Microsoft.NET.Test.Sdk`, `coverlet.collector`, `FluentAssertions` (unit
 and integration suites) and `DocumentFormat.OpenXml` (conformance suite) from nuget.org.
 
@@ -65,9 +66,9 @@ Three suites run, and all three must be green:
 
 | Project | Tests | What it covers |
 |---|---|---|
-| `tests/Aspose.Slides.Foss.Tests` | 1,954 | unit tests of the object model |
-| `tests/Aspose.Slides.Foss.IntegrationTests` | 97 | end-to-end use of the public API |
-| `tests/Aspose.Slides.Foss.ConformanceTests` | 80 | assertions against the produced `.pptx` package |
+| `tests/Aspose.Slides.Foss.Tests` | 3,908 | unit tests of the object model |
+| `tests/Aspose.Slides.Foss.IntegrationTests` | 194 | end-to-end use of the public API |
+| `tests/Aspose.Slides.Foss.ConformanceTests` | 160 | assertions against the produced `.pptx` package |
 
 Run one suite on its own with, for example:
 

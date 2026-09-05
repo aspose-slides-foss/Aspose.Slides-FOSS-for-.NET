@@ -4,8 +4,8 @@ You are working with `Aspose.Slides.Foss`, the official open-source .NET library
 
 ## Getting Started
 
-Requires .NET 9.0 — the framework the library targets and the only one it is tested on. No package
-dependencies and no native ones.
+Requires the .NET 10.0 SDK to build. The library targets `net8.0` and `net10.0`, and both are
+built and tested on every push. No package dependencies and no native ones.
 
 ```bash
 git clone https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET.git

@@ -1,7 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!--
+      Two target frameworks, and the pair is chosen by support dates rather than by novelty.
+      net10.0 is the current long-term release. net8.0 is the previous long-term release and is the
+      floor a consumer can still be on and supported. .NET 9 is deliberately absent: it is a
+      standard-term release that leaves support on the same day as .NET 8, so shipping it would add
+      an asset with no consumer that .NET 8 does not already cover.
+
+      This must stay `TargetFrameworks`, plural, and there must be no `TargetFramework`, singular,
+      anywhere above it. The singular property set in Directory.Build.props wins over the plural
+      one set here, and the failure is silent: the build succeeds and the package ships one
+      framework. The package assertions in CI check for both `lib/` folders for that reason.
+    -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -12,15 +24,24 @@
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <PackageId>Aspose.Slides.Foss</PackageId>
-    <Description>An MIT-licensed library for creating, reading and editing PowerPoint .pptx presentations. It builds the Office Open XML package itself, so it has no package dependencies and needs neither PowerPoint nor COM interop, and it runs anywhere .NET 9 runs. Covers slides, layouts and masters, shapes, text and text formatting, tables, connectors, pictures, fills, lines, effects, 3D formatting, notes slides, comments and document properties. Saves .pptx, .ppsx and .potx; XML parts it does not model are preserved verbatim through a load and save. Charts, SmartArt, animations, macros and export to formats other than PPTX are not implemented.</Description>
-    <PackageTags>pptx;powerpoint;presentation;slides;ooxml;openxml;office;document</PackageTags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <!--
-      No PackageIcon. There is no icon asset in this repository, and drawing a new mark for a
-      package published under a company name would put a logo on nuget.org that the owner of that
-      name never approved. Add the property here once a real icon file is committed.
+      The published identity is `Aspose.Slides.FOSS`. The assembly, the namespaces and the project
+      directory stay `Aspose.Slides.Foss` — NuGet identifiers are case-insensitive but they are
+      displayed exactly as first published, and this casing matches the sibling FOSS packages.
+      Renaming the assembly instead would break every `using` in every published sample.
     -->
+    <PackageId>Aspose.Slides.FOSS</PackageId>
+    <Title>Aspose.Slides FOSS for .NET</Title>
+    <Description>An MIT-licensed library for creating, reading and editing PowerPoint .pptx presentations. It builds the Office Open XML package itself, so it has no package dependencies and needs neither PowerPoint nor COM interop, and it targets .NET 8 and .NET 10. Covers slides, layouts and masters, shapes, text and text formatting, tables, connectors, pictures, fills, lines, effects, 3D formatting, notes slides, comments and document properties. Saves .pptx, .ppsx and .potx; XML parts it does not model are preserved verbatim through a load and save. Charts, SmartArt, animations, macros and export to formats other than PPTX are not implemented.</Description>
+    <PackageTags>pptx;ppsx;potx;powerpoint;presentation;ooxml;openxml;office;slides;aspose;foss</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <!--
+      The release notes are a link rather than a copy: nuget.org renders this field as plain text on
+      a page that is already long, and a copy of the changelog here is one more place for it to go
+      stale. The tag is what the release workflow creates.
+    -->
+    <PackageReleaseNotes>https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/releases/tag/v$(Version)</PackageReleaseNotes>
   </PropertyGroup>
 
   <!--
@@ -58,12 +79,25 @@
   </ItemGroup>
 
   <!--
-    The readme is what nuget.org renders on the package page. The licence text travels with the
-    package as well: PackageLicenseExpression tells NuGet which licence it is, but only a packed
-    file gives an offline consumer the terms themselves.
+    What nuget.org renders on the package page, and what a consumer gets offline.
+
+    The readme packed here is `docs/nuget/README.md`, NOT the repository's own README.md. They are
+    different documents with different audiences and different renderers: the root README is written
+    for GitHub, opens with a Mermaid diagram, and links to headings inside itself. nuget.org parses
+    CommonMark through Markdig, which has no Mermaid, and it drops relative links and images from
+    hosts outside its allow-list without an error anyone but the package owner ever sees. Packing
+    the root README put an unrendered code block at the top of the package page.
+
+    Exactly one file may be packed as `/README.md`; adding a second is a duplicate-entry error at
+    pack time, so this item replaced the root one rather than joining it.
+
+    The licence text travels with the package as well: PackageLicenseExpression tells NuGet which
+    licence it is, but only a packed file gives an offline consumer the terms themselves. The icon
+    is the same image the commercial edition ships, byte for byte.
   -->
   <ItemGroup>
-    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../docs/nuget/README.md" Pack="true" PackagePath="/" />
+    <None Include="../../docs/nuget/icon.png" Pack="true" PackagePath="/" />
     <None Include="../../LICENSE" Pack="true" PackagePath="/" />
   </ItemGroup>
 
