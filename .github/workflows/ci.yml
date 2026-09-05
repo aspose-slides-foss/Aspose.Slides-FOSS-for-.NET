@@ -16,16 +16,34 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # The release workflow runs this one and refuses to publish if any of it fails, so the artefact
+  # that is pushed is the one these jobs built and inspected rather than a rebuild nothing tested.
+  workflow_call:
+    outputs:
+      version:
+        description: The version that was packed, as the project declares it.
+        value: ${{ jobs.package.outputs.version }}
+      package_id:
+        description: The package identifier that was packed.
+        value: ${{ jobs.package.outputs.package_id }}
 
 # The workflow only reads the repository. Publishing is a separate, deliberate act; nothing here
 # needs write access to anything.
 permissions:
   contents: read
 
-# A second push to the same branch makes the first run's answer irrelevant.
+# A second push to the same branch makes the first run's answer irrelevant — but a second push to
+# the same *tag* does not, because a release must not be cancelled halfway. `github.ref` is
+# `refs/tags/...` on a tag push and `refs/heads/...` otherwise, so the expression is false only for
+# tags. `startsWith`, not `contains`: a branch called `fix/refs/tags-parsing` would match `contains`.
+#
+# The literal `ci-` prefix is not cosmetic. Under `workflow_call`, `github.workflow` resolves to the
+# CALLER's workflow name, so without the prefix this group could evaluate to the same string as the
+# calling release workflow's own group — and the caller would then be queued behind a job it is
+# itself waiting for, until the job timeout.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   DOTNET_NOLOGO: 'true'
@@ -180,6 +198,13 @@ jobs:
     # A package built from a revision that fails its own tests is not worth downloading.
     needs: test
     runs-on: ubuntu-latest
+
+    # Exposed so a calling workflow can name the artefact and check the tag against the version
+    # without deriving either a second time. A second source of truth for a version is how a tag and
+    # a package come to disagree.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      package_id: ${{ steps.version.outputs.package_id }}
 
     steps:
       - name: Check out the repository

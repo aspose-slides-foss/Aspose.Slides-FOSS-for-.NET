@@ -23,7 +23,7 @@
 
     Editing this property is one step of cutting a release and not the whole of it: README.md,
     SECURITY.md and CHANGELOG.md all currently state that no package has been published. The full
-    list is under "Releasing" in CONTRIBUTING.md.
+    procedure, and the checklist of what else has to change, is in PUBLISHING.md.
 
     The scheme is CalVer: <two-digit year>.<month>.<patch>, matching the other language editions of
     this library. The patch component starts at 0 and increments for further releases made inside

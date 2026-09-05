@@ -1,0 +1,313 @@
+name: Release to NuGet
+
+# Publishing is a tag push, and it stops for a human on the way.
+#
+# There is no API key anywhere in this repository, and there is not meant to be. The publish job
+# proves its identity to nuget.org with a GitHub OIDC token and receives a key that is valid for one
+# hour, so nothing long-lived exists to leak, rotate or forget. nuget.org matches that token against
+# a trusted-publishing policy naming this repository, this workflow file and the `nuget.org`
+# environment — which means the file name below and the environment name are not free-form. Rename
+# either and the exchange stops working, with an error about the token rather than about the rename.
+#
+# The environment carries a required reviewer, so the publish job pauses until a human approves it.
+# That is why the build, the tests and every assertion live in jobs that run BEFORE it: an
+# approval-gated job waits at its first step, and there is no reason to make a person approve
+# something whose tests have not run yet.
+#
+# Every action is pinned to a commit SHA, for the reason set out at the top of ci.yml. That applies
+# most of all to the login action: `@v1` is a moving alias — its own tag message reads "Update v1 to
+# v1.2.0" — and an OIDC login is the last thing that should follow a pointer somebody else can move.
+
+on:
+  push:
+    tags: ['v*']
+  # A dry run. Everything except the OIDC exchange, the push and the release: the guards, the whole
+  # test suite, the pack, the package assertions and the consumer check all run. Use it before a
+  # real release rather than discovering an unrelated breakage from a tag.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a release in progress. A cancelled run between the push and the verification leaves
+# nobody knowing whether the package landed.
+concurrency:
+  group: nuget-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+
+jobs:
+  guard:
+    name: Guard
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      package_id: ${{ steps.identity.outputs.package_id }}
+      already_published: ${{ steps.published.outputs.already_published }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Asked of MSBuild, not parsed out of a file name. Two single-property calls rather than one
+      # call with two flags: one flag prints a bare value, two switch the output to JSON, and a
+      # script written against the first shape silently misreads the second.
+      #
+      # The empty check is the important line. `-getProperty` on a property that does not exist
+      # prints an empty line and exits 0 — a misspelling is not an error to MSBuild — and an empty
+      # version would build `Aspose.Slides.FOSS..nupkg` and fail somewhere far from the cause.
+      - name: Read the identity from the project
+        id: identity
+        run: |
+          set -euo pipefail
+          version="$(dotnet msbuild src/Aspose.Slides.Foss -getProperty:Version | tr -d '[:space:]')"
+          package_id="$(dotnet msbuild src/Aspose.Slides.Foss -getProperty:PackageId | tr -d '[:space:]')"
+          if [ -z "$version" ] || [ -z "$package_id" ]; then
+            echo "::error::MSBuild returned an empty Version or PackageId"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "package_id=$package_id" >> "$GITHUB_OUTPUT"
+          echo "Project declares $package_id $version"
+
+      # On a tag push the tag must be exactly what the project says, and must not be a pre-release:
+      # a version is published once and cannot be replaced, so a tag that disagrees with the package
+      # is a mislabelled release nobody can correct afterwards.
+      #
+      # On a dry run there is no tag to compare, so this reports the tag a release would need rather
+      # than skipping — which is the thing a person actually wants to know before tagging.
+      - name: Check the tag against the version
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version '$VERSION' is not a plain three-part release version"
+            exit 1
+          fi
+          if [ "${GITHUB_EVENT_NAME}" != "push" ]; then
+            echo "Dry run. A release of $VERSION would need the tag v$VERSION."
+            exit 0
+          fi
+          if [ "${GITHUB_REF_NAME}" != "v$VERSION" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the version the project declares (expected v$VERSION)"
+            exit 1
+          fi
+          echo "Tag ${GITHUB_REF_NAME} matches the declared version."
+
+      # Nothing key-shaped may be in the tree of a commit that is about to be published. This
+      # repository holds no publishing credential by design, so this should never fire — which is
+      # exactly why it is worth running: the day it does, something has changed.
+      #
+      # `git grep` exit codes are inverted against intuition — 1 means no match, which is the good
+      # outcome — so a bare invocation under `set -e` would kill the step on a clean tree. Hence the
+      # `if`. No `-I`: skipping binary files is how a key committed inside one goes unnoticed.
+      - name: Scan the tracked tree for key material
+        run: |
+          set -euo pipefail
+          if git grep -nE -e '-----BEGIN [A-Z ]*PRIVATE KEY' -e 'oy2[a-z0-9]{40,}' -- .; then
+            echo "::error::something key-shaped is committed in this tree; not publishing"
+            exit 1
+          fi
+          echo "No key material in the tracked tree."
+
+      # Ask the registry before building anything expensive. Three outcomes, and the third is the
+      # one that matters: an unexpected status must stop the release, because treating "I could not
+      # tell" as "not published" is how a version gets pushed over one that already exists.
+      #
+      # The status code is read before the body is touched. A 404 from the flat container is Azure
+      # blob XML with a byte-order mark, not JSON, and the 404 path is the one a first release takes.
+      # The identifier is lower-cased because that is the documented form.
+      - name: Ask nuget.org whether this version already exists
+        id: published
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          PACKAGE_ID: ${{ steps.identity.outputs.package_id }}
+        run: |
+          set -euo pipefail
+          id_lower="$(printf '%s' "$PACKAGE_ID" | tr '[:upper:]' '[:lower:]')"
+          body="$(mktemp)"
+          status="$(curl -sS --max-time 60 -o "$body" -w '%{http_code}' \
+            "https://api.nuget.org/v3-flatcontainer/${id_lower}/index.json" || true)"
+          case "$status" in
+            404)
+              echo "The package does not exist on nuget.org yet."
+              echo "already_published=false" >> "$GITHUB_OUTPUT"
+              ;;
+            200)
+              if grep -qE "\"${VERSION//./\\.}\"" "$body"; then
+                echo "::notice::$PACKAGE_ID $VERSION is already on nuget.org; the push will be skipped and only verification will run."
+                echo "already_published=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "The package exists; this version does not."
+                echo "already_published=false" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "::error::nuget.org answered $status; refusing to guess whether $VERSION is published"
+              exit 1
+              ;;
+          esac
+
+  # The same CI that runs on every push, invoked as a reusable workflow at the commit being
+  # released. If any of it fails the release never starts, and the artefact the publish job pushes
+  # is the one these jobs built and asserted against rather than a rebuild nothing inspected.
+  #
+  # A path rather than a SHA because GitHub requires that form for a reusable workflow in the same
+  # repository. It resolves to the copy of ci.yml at the released commit, which is the right one.
+  ci:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish
+    needs: [guard, ci]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    # The gate. A required reviewer on this environment is what makes a tag push a proposal rather
+    # than an action, and the trusted-publishing policy names this environment — so a job that
+    # skipped it would not merely skip the approval, it would fail to obtain a token at all.
+    environment:
+      name: nuget.org
+      url: https://www.nuget.org/packages/${{ needs.guard.outputs.package_id }}/${{ needs.guard.outputs.version }}
+
+    permissions:
+      id-token: write   # lets GitHub mint the OIDC token the login exchanges
+      contents: write   # lets `gh release create` create the release
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Download the package CI built
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nuget-package-${{ needs.guard.outputs.version }}
+          path: artifacts/package
+
+      # The artefact has to be the one the guard described. `check_package.py` asserts a great deal
+      # about a package, but it is handed a path and knows nothing of the tag or the project, so the
+      # cross-check belongs here: the name dotnet pack produces is `<id>.<version>.nupkg`, exactly.
+      - name: Check the artefact is the package this release is for
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+          PACKAGE_ID: ${{ needs.guard.outputs.package_id }}
+        run: |
+          set -euo pipefail
+          ls -l artifacts/package
+          test -f "artifacts/package/${PACKAGE_ID}.${VERSION}.nupkg"
+          test -f "artifacts/package/${PACKAGE_ID}.${VERSION}.snupkg"
+          python3 .github/scripts/check_package.py "artifacts/package/${PACKAGE_ID}.${VERSION}.nupkg"
+
+      # One OIDC token buys exactly one key, and the key lives for an hour, so the login sits
+      # immediately before the push rather than at the top of the job.
+      #
+      # `user` is the nuget.org profile name, not an email address; an email fails the exchange. It
+      # is held as an environment secret rather than written here because it names an account that
+      # can publish under a reserved prefix, and this repository is public.
+      - name: Log in to nuget.org
+        id: login
+        if: needs.guard.outputs.already_published != 'true'
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # One push. `dotnet nuget push` sends the sibling .snupkg from the same folder by itself, so a
+      # second push would be a duplicate rather than the symbols.
+      #
+      # No `--skip-duplicate`: whether this version already exists is a question the guard answered
+      # deliberately, and a flag that turns a duplicate into a silent success would hide the case
+      # where the guard and the registry disagree.
+      - name: Push to nuget.org
+        if: needs.guard.outputs.already_published != 'true'
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+          PACKAGE_ID: ${{ needs.guard.outputs.package_id }}
+        run: |
+          set -euo pipefail
+          dotnet nuget push "artifacts/package/${PACKAGE_ID}.${VERSION}.nupkg" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json
+
+      # A successful push is not a published package. nuget.org validates and indexes afterwards,
+      # and during that window the package is not retrievable — so the release is not finished until
+      # something can actually download it.
+      #
+      # The version list is polled, and the .nupkg itself is fetched only once the version appears.
+      # That order is deliberate: a 404 from the .nupkg URL carries an `Expires` header a day ahead,
+      # so polling it early risks an edge caching that 404 and serving it for the rest of the day —
+      # failing a release that in fact succeeded. The index has `Cache-Control: no-cache`.
+      - name: Wait until nuget.org serves it
+        timeout-minutes: 35
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+          PACKAGE_ID: ${{ needs.guard.outputs.package_id }}
+        run: |
+          set -euo pipefail
+          id_lower="$(printf '%s' "$PACKAGE_ID" | tr '[:upper:]' '[:lower:]')"
+          index="https://api.nuget.org/v3-flatcontainer/${id_lower}/index.json"
+          nupkg="https://api.nuget.org/v3-flatcontainer/${id_lower}/${VERSION}/${id_lower}.${VERSION}.nupkg"
+          body="$(mktemp)"
+          rounds=20
+          interval=90
+          for i in $(seq 1 "$rounds"); do
+            missing=""
+            s1="$(curl -sS --max-time 60 -o "$body" -w '%{http_code}' "$index" || true)"
+            [ -n "$s1" ] || s1="000"
+            if [ "$s1" = "200" ] && grep -qE "\"${VERSION//./\\.}\"" "$body"; then
+              s2="$(curl -sS --max-time 60 -o /dev/null -w '%{http_code}' "$nupkg" || true)"
+              [ -n "$s2" ] || s2="000"
+              if [ "$s2" = "200" ]; then
+                echo "Served after about $(( (i - 1) * interval / 60 )) minutes."
+                exit 0
+              fi
+              missing="the .nupkg (HTTP $s2)"
+            else
+              missing="the version list (HTTP $s1)"
+            fi
+            echo "round ${i}/${rounds}: still waiting on ${missing}"
+            if [ "$i" -lt "$rounds" ]; then sleep "$interval"; fi
+          done
+          echo "::error::after about $(( (rounds - 1) * interval / 60 )) minutes nuget.org is still not serving ${PACKAGE_ID} ${VERSION} (${missing})."
+          echo "::error::This does NOT mean the push failed. Check https://www.nuget.org/packages/${PACKAGE_ID}/${VERSION} — validation failures appear there and are emailed to the package owners. Re-running this same tag is safe; do not invent a new version number."
+          exit 1
+
+      # Never `--generate-notes`. On a public repository it writes pull-request titles, contributor
+      # handles and a "New Contributors" section straight from the merge history — none of which
+      # describes the release, and some of which is internal wording that has no business on a
+      # release page. The notes are the changelog section for this version, and nothing else.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes="$(mktemp)"
+          python3 .github/scripts/changelog_section.py "$VERSION" > "$notes"
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists; leaving it alone."
+            exit 0
+          fi
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file "$notes" \
+            --verify-tag
