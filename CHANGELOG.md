@@ -5,9 +5,7 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editions of the library.
 
-Nothing has been published to nuget.org yet, so everything below is unreleased.
-
-## [Unreleased]
+## [26.9.0] - 2026-09-05
 
 This is the first entry. The library existed before it, but it wrote files that were wrong in ways
 its own tests could not see, and the work below is what made the produced `.pptx` a package other
@@ -99,4 +97,4 @@ adding or cloning a layout, threaded comments, encryption, macros, digital signa
 of rendering or conversion.
 The README lists these in full, with the API member that is missing for each.
 
-[Unreleased]: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/commits/main
+[26.9.0]: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/releases/tag/v26.9.0

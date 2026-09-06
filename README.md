@@ -68,9 +68,14 @@ Both are built, tested and shipped in the package; CI runs the whole suite on ea
 
 ## Installation
 
-**There is no NuGet package yet.** `Aspose.Slides.Foss` is the package id the project builds under,
-but nothing has been published to nuget.org, so `dotnet add package Aspose.Slides.Foss` will not
-resolve. The two routes that work today are source and CI artefacts.
+```bash
+dotnet add package Aspose.Slides.FOSS
+```
+
+The package targets `net8.0` and `net10.0` and has no dependencies. Note the casing: the package id
+is `Aspose.Slides.FOSS`, while the assembly and the namespaces are `Aspose.Slides.Foss`.
+
+Two other routes work as well — building from source, and the package every CI run produces.
 
 ### Build from source
 
@@ -106,11 +111,11 @@ put the extracted files in a folder, and point NuGet at that folder:
 ```
 
 ```bash
-dotnet add package Aspose.Slides.Foss --version 26.8.0
+dotnet add package Aspose.Slides.FOSS --version 26.9.0
 ```
 
-`26.8.0` is the version in `Directory.Build.props` today; use whatever the artefact you downloaded
-is called.
+Use whatever version the artefact you downloaded is called; a CI build carries the version in
+`Directory.Build.props` at that commit, which may be ahead of the last release.
 
 ---
 

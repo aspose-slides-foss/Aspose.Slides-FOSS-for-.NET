@@ -4,16 +4,16 @@
 [![Downloads](https://img.shields.io/nuget/dt/Aspose.Slides.FOSS.svg)](https://www.nuget.org/packages/Aspose.Slides.FOSS/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-[![Aspose.Slides FOSS for .NET](https://raw.githubusercontent.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/main/docs/media/banner-readme.png)](https://products.aspose.org/slides/net/)
-
-[Product page](https://products.aspose.org/slides/net/) | [Documentation](https://docs.aspose.org/) | [API reference](https://reference.aspose.org/) | [Source](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET) | [Issues](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/issues) | [Free support](https://forum.aspose.com/c/slides/11)
-
 A free, MIT-licensed library for creating, reading and editing PowerPoint `.pptx` presentations from
 .NET. It builds the Office Open XML package itself, so it has **no package dependencies** and needs
 neither PowerPoint nor COM interop, and it runs on Windows, Linux and macOS.
 
 It is a focused library rather than a small one. Everything below is verified by opening the file it
 produced and asserting on the XML inside — never by asking the library to read its own output back.
+
+[![Aspose.Slides FOSS for .NET](https://raw.githubusercontent.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/main/docs/media/banner-readme.png)](https://products.aspose.org/slides/net/)
+
+[Product page](https://products.aspose.org/slides/net/) | [Documentation](https://docs.aspose.org/) | [API reference](https://reference.aspose.org/) | [Source](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET) | [Issues](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/issues) | [Free support](https://forum.aspose.com/c/slides/11)
 
 ## Install
 

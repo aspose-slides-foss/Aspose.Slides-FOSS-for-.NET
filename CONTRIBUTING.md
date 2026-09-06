@@ -171,10 +171,11 @@ what to do when a release fails halfway. Read that rather than this.
 
 Two things are worth repeating here, because they are what a contributor gets wrong:
 
-- **Bumping `<Version>` in `Directory.Build.props` is one step and not the whole of it.** Several
-  files state in the present tense that no package has been published. PUBLISHING.md carries the
-  checklist; publishing without working through it puts "There is no NuGet package yet" on the page
-  for the package that exists.
+- **Bumping `<Version>` in `Directory.Build.props` is one step and not the whole of it.** The
+  changelog, the readme and the security policy each say something about the released version, and
+  a release that leaves them behind describes the previous one. PUBLISHING.md carries the checklist,
+  and the release workflow refuses to publish if the changelog has no section for the version being
+  released.
 - **The page nuget.org renders is `docs/nuget/README.md`, not this repository's `README.md`.** They
   are different documents for different readers, and only the first one ships.
 

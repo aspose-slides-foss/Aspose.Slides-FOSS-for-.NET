@@ -21,9 +21,9 @@
     used to do, and it could not survive a change of package identifier: the strip was a literal
     prefix, and a prefix that no longer matches leaves the string untouched instead of failing.
 
-    Editing this property is one step of cutting a release and not the whole of it: README.md,
-    SECURITY.md and CHANGELOG.md all currently state that no package has been published. The full
-    procedure, and the checklist of what else has to change, is in PUBLISHING.md.
+    Editing this property is one step of cutting a release and not the whole of it. README.md,
+    SECURITY.md and CHANGELOG.md each state something about the released version, and each has to
+    move with it. The full procedure, and the checklist, is in PUBLISHING.md.
 
     The scheme is CalVer: <two-digit year>.<month>.<patch>, matching the other language editions of
     this library. The patch component starts at 0 and increments for further releases made inside

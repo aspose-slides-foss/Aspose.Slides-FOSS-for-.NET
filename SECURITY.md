@@ -2,16 +2,15 @@
 
 ## Supported versions
 
-No version of this library has been published to nuget.org yet. Until a release exists, the only
-code that receives security fixes is the current `main` branch of this repository.
+Security fixes go into the latest release. There is one release line and no long-term-support
+branch: an older version is superseded rather than patched, so the supported answer is always to
+move to the newest.
 
 | Version | Supported |
 |---|---|
-| `main` | yes |
-| Anything built from an older commit | no — rebuild from `main` |
-
-When the first release is published this table will list the released versions instead, and this
-sentence will be replaced by a support window.
+| `26.9.0` | yes |
+| Older releases | no — upgrade to the latest |
+| `main` | yes — fixes land here first |
 
 ## Reporting a vulnerability
 
