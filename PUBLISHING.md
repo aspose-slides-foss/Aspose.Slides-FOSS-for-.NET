@@ -7,6 +7,17 @@ There is **no API key in this repository**, and there is not meant to be. The pu
 identity to nuget.org with a GitHub OIDC token and receives a key valid for one hour. Nothing
 long-lived exists to leak, rotate, or forget to revoke.
 
+> **The package must be author-signed, and this is currently unresolved.** nuget.org refuses an
+> unsigned package under this owner:
+> `400 — This package must be signed with a registered certificate.`
+> Every Aspose package on nuget.org, commercial and open-source alike, is author-signed with
+> `CN=ASPOSE PTY LTD` (valid 2025-11-06 → 2028-11-05) — verified with `dotnet nuget verify --all`
+> against all six sibling packages. Until a signing step exists, the push step of a release will
+> fail. Everything before it, including the OIDC token exchange, works.
+>
+> Nothing is published when this happens and no version is consumed: the push is rejected before
+> anything is accepted, so the same version can be released once signing is in place.
+
 ## Cutting a release
 
 1. **Make the release commit.** Set `<Version>` in `Directory.Build.props` — it is the only place a
