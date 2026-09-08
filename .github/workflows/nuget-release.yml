@@ -218,6 +218,60 @@ jobs:
           test -f "artifacts/package/${PACKAGE_ID}.${VERSION}.snupkg"
           python3 .github/scripts/check_package.py "artifacts/package/${PACKAGE_ID}.${VERSION}.nupkg"
 
+      # nuget.org will not accept an unsigned package under this owner, and the signing certificate
+      # is not here: it lives in the certificate store of an internal build agent, and is applied by
+      # a separate job there. So the package this workflow BUILT is not the package it PUSHES — the
+      # signed one is attached to the release for this tag, by hand, between the tag push and the
+      # approval that let this job start.
+      #
+      # That hand-off is the only place a substituted artefact could get in, so it is the place that
+      # is checked hardest. The signed package must be the built one plus a signature and nothing
+      # else: same entries, byte-identical content, one addition named `.signature.p7s`. A rebuild,
+      # a different commit, or an edited file all fail here rather than reaching nuget.org.
+      - name: Take the signed package from the release, and prove it is the same package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.guard.outputs.version }}
+          PACKAGE_ID: ${{ needs.guard.outputs.package_id }}
+        run: |
+          set -euo pipefail
+          nupkg="${PACKAGE_ID}.${VERSION}.nupkg"
+          mkdir -p artifacts/signed
+
+          if ! gh release download "v${VERSION}" --pattern "$nupkg" --dir artifacts/signed 2>/dev/null; then
+            echo "::error::No signed package is attached to release v${VERSION}."
+            echo "::error::Sign it first: download ${nupkg} from this run's artefacts, run the"
+            echo "::error::internal signing job, and attach the signed file to the release for this"
+            echo "::error::tag. Then re-run this workflow. Nothing has been published."
+            exit 1
+          fi
+
+          python3 - "artifacts/package/$nupkg" "artifacts/signed/$nupkg" <<'PY'
+          import hashlib, sys, zipfile
+
+          built, signed = (zipfile.ZipFile(p) for p in sys.argv[1:3])
+          b, s = set(built.namelist()), set(signed.namelist())
+
+          added, removed = sorted(s - b), sorted(b - s)
+          if added != ['.signature.p7s']:
+              sys.exit("signing added %r; the only permitted addition is .signature.p7s" % (added,))
+          if removed:
+              sys.exit("the signed package is missing %r" % (removed,))
+
+          # [Content_Types].xml legitimately gains the signature's content type; everything else
+          # must be untouched, because everything else is what the tests were run against.
+          for name in sorted(b & s):
+              if name == '[Content_Types].xml':
+                  continue
+              if hashlib.sha256(built.read(name)).digest() != hashlib.sha256(signed.read(name)).digest():
+                  sys.exit("%s differs between the built and the signed package" % name)
+
+          print("signed package is the built package plus a signature: %d entries checked" % len(b))
+          PY
+
+          echo "Verifying the signature itself:"
+          dotnet nuget verify "artifacts/signed/$nupkg" --all
+
       # One OIDC token buys exactly one key, and the key lives for an hour, so the login sits
       # immediately before the push rather than at the top of the job.
       #
@@ -231,8 +285,14 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      # One push. `dotnet nuget push` sends the sibling .snupkg from the same folder by itself, so a
-      # second push would be a duplicate rather than the symbols.
+      # One push, of the SIGNED package — the file proved identical to the built one in the step
+      # above, plus its signature.
+      #
+      # Note the folder: the symbol package is not beside it, so `dotnet nuget push` does not carry
+      # the .snupkg along this time. That is a deliberate loss. Symbols cannot be author-signed the
+      # way the library is, and shipping an unsignable symbol package alongside a signed library is
+      # a second validation surface for no benefit. The .snupkg is attached to the GitHub release
+      # instead, where anyone who wants it can get it.
       #
       # No `--skip-duplicate`: whether this version already exists is a question the guard answered
       # deliberately, and a flag that turns a duplicate into a silent success would hide the case
@@ -244,7 +304,7 @@ jobs:
           PACKAGE_ID: ${{ needs.guard.outputs.package_id }}
         run: |
           set -euo pipefail
-          dotnet nuget push "artifacts/package/${PACKAGE_ID}.${VERSION}.nupkg" \
+          dotnet nuget push "artifacts/signed/${PACKAGE_ID}.${VERSION}.nupkg" \
             --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json
 

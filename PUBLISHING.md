@@ -7,16 +7,15 @@ There is **no API key in this repository**, and there is not meant to be. The pu
 identity to nuget.org with a GitHub OIDC token and receives a key valid for one hour. Nothing
 long-lived exists to leak, rotate, or forget to revoke.
 
-> **The package must be author-signed, and this is currently unresolved.** nuget.org refuses an
-> unsigned package under this owner:
-> `400 — This package must be signed with a registered certificate.`
-> Every Aspose package on nuget.org, commercial and open-source alike, is author-signed with
-> `CN=ASPOSE PTY LTD` (valid 2025-11-06 → 2028-11-05) — verified with `dotnet nuget verify --all`
-> against all six sibling packages. Until a signing step exists, the push step of a release will
-> fail. Everything before it, including the OIDC token exchange, works.
+> **The package must be author-signed, and signing happens outside this repository.** nuget.org
+> refuses an unsigned package under this owner — `400 — This package must be signed with a
+> registered certificate` — and every Aspose package, commercial and open-source alike, is
+> author-signed with `CN=ASPOSE PTY LTD`. The certificate is not here and must not be: it lives in
+> the certificate store of an internal build agent, and a separate job there applies it.
 >
-> Nothing is published when this happens and no version is consumed: the push is rejected before
-> anything is accepted, so the same version can be released once signing is in place.
+> So the package this repository *builds* is not the package it *pushes*. The signed one comes back
+> and is attached to the release, and the workflow proves it is the built package plus a signature
+> and nothing else before pushing it. Step 5 below is where that happens.
 
 ## Cutting a release
 
@@ -27,11 +26,19 @@ long-lived exists to leak, rotate, or forget to revoke.
    guard, the whole test suite, the pack, the package assertions and the consumer check, and stops
    short of publishing. It reports the tag a release would need.
 4. **Push the tag.** `git tag v26.9.0 && git push origin v26.9.0`. The tag must be `v` followed by
-   exactly the version in `Directory.Build.props`; the workflow refuses anything else.
-5. **Approve the deployment.** The publish job waits on the `nuget.org` environment until a reviewer
-   approves it. Until then nothing has been sent.
-6. **Watch it land.** The workflow polls nuget.org until the version is actually downloadable, then
-   creates the GitHub release from the changelog section for that version.
+   exactly the version in `Directory.Build.props`; the workflow refuses anything else. The guards run,
+   CI builds and verifies the package, and the publish job then **waits for approval**.
+5. **Sign it, while the job waits.** That pause is the signing window, and it exists for this.
+   1. Download `<id>.<version>.nupkg` from the run's artefacts — the built file, never a rebuild.
+   2. Run the internal signing job with it. It signs and verifies, and publishes nothing.
+   3. Download the signed package from that job.
+   4. Create a **draft release** for the tag and attach the signed `.nupkg` to it. Attach the
+      `.snupkg` too: symbols are not pushed to nuget.org, so the release is where they live.
+6. **Approve the deployment.** The publish job takes the signed package from the release, proves it
+   is byte-identical to the one CI built apart from the added signature, and pushes it. Until you
+   approve, nothing has been sent.
+7. **Watch it land.** The workflow polls nuget.org until the version is actually downloadable, then
+   publishes the release with notes from the changelog section for that version.
 
 ### The release-commit checklist
 
@@ -62,7 +69,8 @@ somewhere cheap — rather than after a version number has been spent.
 | 4 | nuget.org is asked whether the version already exists | Three outcomes, and the third is the point: an unexpected status **stops** the release. Treating "I could not tell" as "not published" is how a version gets pushed over one that exists. |
 | 5 | The full CI suite runs at the released commit, as a reusable workflow | The artefact that is pushed is the one those jobs built and inspected, not a rebuild nothing tested. |
 | 6 | The downloaded artefact is named `<id>.<version>.nupkg`, and `check_package.py` passes on it | The package checker is handed a path and knows nothing of the tag; the cross-check belongs to the release. |
-| 7 | After the push, nuget.org must actually serve the version | A successful push is not a published package. |
+| 7 | The signed package differs from the built one by exactly one added entry, `.signature.p7s`, and nothing else | Signing happens on another machine, so this hand-off is the one place a substituted artefact could enter. A rebuild, a different commit or an edited file fails here rather than on nuget.org. |
+| 8 | After the push, nuget.org must actually serve the version | A successful push is not a published package. |
 
 ## Verifying by hand
 
