@@ -363,11 +363,22 @@ jobs:
           set -euo pipefail
           notes="$(mktemp)"
           python3 .github/scripts/changelog_section.py "$VERSION" > "$notes"
-          if gh release view "v$VERSION" > /dev/null 2>&1; then
-            echo "Release v$VERSION already exists; leaving it alone."
-            exit 0
-          fi
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --notes-file "$notes" \
-            --verify-tag
+          # The signed package was attached to a DRAFT release, so by now the release exists and is
+          # unpublished. Publishing it is what finishes the job. Creating a second one would fail,
+          # and skipping would leave the release invisible for ever — which is how a package ends up
+          # public while the notes describing it never are.
+          state="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate             --jq ".[] | select(.tag_name==\"v${VERSION}\") | if .draft then \"draft\" else \"published\" end" | head -1)"
+
+          case "$state" in
+            draft)
+              echo "Publishing the draft release, with notes from the changelog."
+              gh release edit "v$VERSION" --draft=false --title "v$VERSION" --notes-file "$notes"
+              ;;
+            published)
+              echo "Release v$VERSION is already published; leaving it alone."
+              ;;
+            *)
+              echo "No release exists for v$VERSION; creating one."
+              gh release create "v$VERSION" --title "v$VERSION" --notes-file "$notes" --verify-tag
+              ;;
+          esac
