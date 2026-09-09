@@ -238,13 +238,20 @@ jobs:
           nupkg="${PACKAGE_ID}.${VERSION}.nupkg"
           mkdir -p artifacts/signed
 
-          if ! gh release download "v${VERSION}" --pattern "$nupkg" --dir artifacts/signed 2>/dev/null; then
-            echo "::error::No signed package is attached to release v${VERSION}."
-            echo "::error::Sign it first: download ${nupkg} from this run's artefacts, run the"
-            echo "::error::internal signing job, and attach the signed file to the release for this"
-            echo "::error::tag. Then re-run this workflow. Nothing has been published."
+          # Found through the API rather than with `gh release download`, because at this point the
+          # release is a DRAFT — the signed package was attached to it while this job waited for
+          # approval — and a draft is not resolvable by tag name the way a published one is.
+          asset_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate             --jq ".[] | select(.tag_name==\"v${VERSION}\") | .assets[] | select(.name==\"${nupkg}\") | .id" | head -1)"
+
+          if [ -z "$asset_id" ]; then
+            echo "::error::No signed ${nupkg} is attached to the release for v${VERSION}."
+            echo "::error::Sign it first: take ${nupkg} from this run's artefacts, run the internal"
+            echo "::error::signing job, and attach the signed file to a draft release for this tag."
+            echo "::error::Then approve this deployment again. Nothing has been published."
             exit 1
           fi
+
+          gh api -H "Accept: application/octet-stream"             "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" > "artifacts/signed/$nupkg"
 
           python3 - "artifacts/package/$nupkg" "artifacts/signed/$nupkg" <<'PY'
           import hashlib, sys, zipfile
