@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editions of the library.
 
-## [26.9.0]
+## [26.9.0] - 2026-09-10
 
 This is the first entry. The library existed before it, but it wrote files that were wrong in ways
 its own tests could not see, and the work below is what made the produced `.pptx` a package other

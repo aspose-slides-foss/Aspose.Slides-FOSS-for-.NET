@@ -171,4 +171,12 @@ as a failed release.
 
 | Version | Date | Notes |
 |---|---|---|
-| — | — | Nothing has been published yet. |
+| 26.9.0 | 2026-09-10 | The first release, and the first exercise of every step above. Signed on the internal build agent during the approval pause, attached to the release, and pushed by the workflow after it proved the signed file was the built file plus `.signature.p7s`. |
+
+Two things the first release established, worth knowing before the second:
+
+- **The `.snupkg` is not on nuget.org and is not meant to be.** It is attached to the GitHub release
+  instead, for the reason in step 5.
+- **The package is signed twice.** `dotnet nuget verify --all` on the published file reports an author
+  signature (`CN=ASPOSE PTY LTD`) and a repository signature that nuget.org counter-signs on
+  ingestion. The second one is not something this repository produces or controls.

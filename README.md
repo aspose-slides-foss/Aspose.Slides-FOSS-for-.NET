@@ -1,6 +1,7 @@
 # Aspose.Slides FOSS for .NET
 
 [![CI](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Aspose.Slides.FOSS.svg)](https://www.nuget.org/packages/Aspose.Slides.FOSS/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/blob/main/LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com/)
 
