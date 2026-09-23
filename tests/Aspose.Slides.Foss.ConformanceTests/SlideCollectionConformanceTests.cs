@@ -57,6 +57,37 @@ public sealed class SlideCollectionConformanceTests : IDisposable
     }
 
     [Fact]
+    public void RemovingASlideThroughTheSlideItselfRemovesItFromTheFile()
+    {
+        var path = _workspace.PathFor("slide-remove-itself.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Sections.AddSection("Intro", presentation.Slides[0]);
+            presentation.Sections.AddSection("Body", presentation.Slides[1]);
+            presentation.Slides[2].Remove();
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+
+        var slideIds = PackageAssert.Select(package, "ppt/presentation.xml", "//p:sldIdLst/p:sldId");
+        var slideParts = package.PartNames
+            .Where(name => name.StartsWith("ppt/slides/slide", StringComparison.Ordinal) && name.EndsWith(".xml", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(slideIds.Count == 2 && slideParts.Count == 2,
+            $"One of three slides was removed; the package registers {slideIds.Count} and contains " +
+            $"{slideParts.Count} slide part(s): {string.Join(", ", slideParts)}");
+
+        PackageAssert.SectionsPartitionTheSlideList(package);
+        PackageAssert.NoOverrideNamesAMissingPart(package);
+        PackageAssert.EveryInternalRelationshipTargetExists(package);
+    }
+
+    [Fact]
     public void RemovingASlideRemovesItsPartAndItsRelationship()
     {
         var path = _workspace.PathFor("removed-slide.pptx");

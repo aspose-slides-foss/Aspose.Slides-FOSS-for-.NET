@@ -189,7 +189,10 @@ public sealed class Slide : BaseSlide, ISlide
     /// <inheritdoc/>
     public void Remove()
     {
+        // Through the slide collection, which removes the slide from the package and the section
+        // list as well. Dropping it from the in-memory list alone left the file unchanged: the saved
+        // deck still had the slide, and its sections were computed against a list that did not.
         var presentation = Presentation as Presentation;
-        presentation?.SlidesInternal.Remove(this);
+        presentation?.Slides.Remove(this);
     }
 }

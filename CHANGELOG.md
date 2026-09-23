@@ -19,6 +19,9 @@ uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editi
   were in no section, and sections named slides that no longer existed. The section list is now
   rewritten after any change to the slides, from the slides each section holds. An empty section read
   from a file keeps its place instead of emptying every section after it.
+- **`ISlide.Remove()` removes the slide from the file.** It took the slide out of the object model
+  only, so `Slides.Count` went down while the saved deck still contained the slide. It now does what
+  `Slides.Remove(slide)` does.
 - **A subset save lists only the slides it writes in its sections.** `Save(…, int[] slides, …)` left
   the dropped slides' ids in the section list. They are now removed; a section left with no slides is
   kept, empty, as PowerPoint keeps it.
