@@ -96,7 +96,7 @@ that `Harness/` gives you five helpers:
 | `PackageAssert` | the rules a consumer applies — every `r:id`/`r:embed`/`r:link` resolves in that part's `.rels`, every part is content-typed, no `Override` names a missing part, no relationship targets a missing part, an element exists at an XPath with the attributes you name, children appear in schema-required order |
 | `SchemaValidation` | runs `OpenXmlValidator(FileFormatVersions.Office2019)` over the package and asserts zero errors |
 | `TestWorkspace` | a temp directory deleted with the test class, plus a 1×1 PNG |
-| `TestFixtures` | the decks to open, including a 46-part deck PowerPoint wrote that carries parts this library never writes — the only way to notice that a save dropped one — and two three-slide decks PowerPoint wrote with sections: one as authored, and one as PowerPoint saved it after deleting the middle slide, so its slide ids have a gap |
+| `TestFixtures` | the decks to open, including a 46-part deck PowerPoint wrote that carries parts this library never writes — the only way to notice that a save dropped one — two three-slide decks PowerPoint wrote with sections, one as authored and one as PowerPoint saved it after deleting the middle slide, so its slide ids have a gap; and two one-slide decks PowerPoint wrote with a comment and a reply to it, by one author and by two |
 
 The validator and the package assertions catch different things and neither subsumes the other. The
 validator knows the schema: invented element names, missing required attributes, wrong child order.

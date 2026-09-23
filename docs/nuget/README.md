@@ -77,8 +77,8 @@ below raises rather than producing a file that looks right and is not.
   interface has no members — implementing it gives you nothing.
 - **No slide backgrounds, no themes, and no slide size control.** A new presentation is 4:3 and
   cannot be changed.
-- **No threaded comments.** A reply is accepted by the object model and no `ppt/threadedComments/`
-  part is written, so it does not survive a save. Classic comments do.
+- **No modern comments.** No `ppt/threadedComments/` part is written. Comments and their replies
+  are written on the classic comment list.
 - **No encryption, protection, digital signatures or mathematical text.**
 - **`IImageCollection.AddImage` has no overload taking a path** — read the bytes or open the stream
   yourself.

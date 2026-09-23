@@ -67,11 +67,11 @@ public sealed class Comment : IComment
     {
         get
         {
-            var parentId = _data.ParentCmId;
-            if (parentId is null)
+            var parentRef = _data.ParentRef;
+            if (parentRef is null)
                 return null;
 
-            var cd = _commentsPart.FindCommentByIdxAll(parentId.Value);
+            var cd = _commentsPart.FindComment(parentRef.Value.AuthorId, parentRef.Value.Idx);
             if (cd is null)
                 return null;
 
@@ -94,33 +94,30 @@ public sealed class Comment : IComment
         {
             if (value is null)
             {
-                _data.ParentCmId = null;
+                _data.ParentRef = null;
+                return;
             }
-            else
-            {
-                var other = (Comment)value;
-                _data.ParentCmId = other._data.Idx;
-            }
+
+            if (value is not Comment other)
+                throw new ArgumentException("The parent must be a comment of this presentation.", nameof(value));
+            if (ReferenceEquals(other._data.Elem, _data.Elem))
+                throw new ArgumentException("A comment cannot reply to itself.", nameof(value));
+            // PowerPoint names a parent within the slide's own comment list, so a reply and the
+            // comment it answers must be on the same slide.
+            if (!ReferenceEquals(other._commentsPart, _commentsPart))
+                throw new ArgumentException("A reply must be on the same slide as the comment it answers.", nameof(value));
+
+            other._data.EnsureThreadingInfo();
+            _data.ParentRef = (other._data.AuthorId, other._data.Idx);
         }
     }
 
     /// <inheritdoc/>
     public void Remove()
     {
-        var myIdx = _data.Idx;
-        var myAuthorId = _data.AuthorId;
-
-        // Collect direct replies by the same author
-        var toRemove = new List<System.Xml.Linq.XElement>();
-        foreach (var cd in _commentsPart.GetCommentsByAuthor(myAuthorId))
-        {
-            if (cd.ParentCmId == myIdx)
-                toRemove.Add(cd.Elem);
-        }
-
-        // Remove replies
-        foreach (var elem in toRemove)
-            _commentsPart.RemoveCommentElem(elem);
+        // Direct replies, by any author: each names this comment by its author and index.
+        foreach (var reply in _commentsPart.GetReplies(_data))
+            _commentsPart.RemoveCommentElem(reply.Elem);
 
         // Remove this comment
         _commentsPart.RemoveCommentElem(_data.Elem);

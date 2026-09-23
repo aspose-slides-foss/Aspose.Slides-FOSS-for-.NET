@@ -26,6 +26,9 @@ internal static class Ns
     /// <summary>The PowerPoint 2010 extension namespace, which carries sections.</summary>
     internal static readonly XNamespace P14 = "http://schemas.microsoft.com/office/powerpoint/2010/main";
 
+    /// <summary>The PowerPoint 2012 extension namespace, which carries comment threads.</summary>
+    internal static readonly XNamespace P15 = "http://schemas.microsoft.com/office/powerpoint/2012/main";
+
     /// <summary>Extended document properties (<c>docProps/app.xml</c>).</summary>
     internal static readonly XNamespace Ep = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties";
 
@@ -61,6 +64,7 @@ internal static class Ns
         manager.AddNamespace("rel", Rel.NamespaceName);
         manager.AddNamespace("ct", Ct.NamespaceName);
         manager.AddNamespace("p14", P14.NamespaceName);
+        manager.AddNamespace("p15", P15.NamespaceName);
         manager.AddNamespace("ep", Ep.NamespaceName);
         return manager;
     }

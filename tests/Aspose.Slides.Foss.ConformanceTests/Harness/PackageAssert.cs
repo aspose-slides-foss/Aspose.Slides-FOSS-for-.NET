@@ -299,6 +299,7 @@ internal static class PackageAssert
             "a" => Ns.A,
             "p" => Ns.P,
             "p14" => Ns.P14,
+            "p15" => Ns.P15,
             _ => XNamespace.None,
         };
         return (string?)element.Attribute(ns + local);

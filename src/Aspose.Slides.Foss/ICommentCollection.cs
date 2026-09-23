@@ -36,7 +36,7 @@ public interface ICommentCollection
     /// </summary>
     /// <param name="text">The comment text.</param>
     /// <param name="slide">The target slide.</param>
-    /// <param name="position">The position on the slide.</param>
+    /// <param name="position">The position on the slide, in centimetres from its top-left corner.</param>
     /// <param name="creationTime">The creation timestamp.</param>
     /// <returns>The newly created comment.</returns>
     IComment AddComment(string text, ISlide slide, PointF position, DateTime creationTime);
@@ -47,7 +47,7 @@ public interface ICommentCollection
     /// <param name="index">The zero-based insertion index within the comments part.</param>
     /// <param name="text">The comment text.</param>
     /// <param name="slide">The target slide.</param>
-    /// <param name="position">The position on the slide.</param>
+    /// <param name="position">The position on the slide, in centimetres from its top-left corner.</param>
     /// <param name="creationTime">The creation timestamp.</param>
     /// <returns>The newly created comment.</returns>
     IComment InsertComment(int index, string text, ISlide slide, PointF position, DateTime creationTime);

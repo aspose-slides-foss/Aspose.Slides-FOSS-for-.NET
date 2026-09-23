@@ -122,7 +122,7 @@ notes.NotesTextFrame.Text = "Speaker notes here.";
 
 ```csharp
 var author = prs.CommentAuthors.AddAuthor("Jane Smith", "JS");
-author.Comments.AddComment("Review this", slide, new PointF(2.0f, 2.0f), DateTime.Now);
+author.Comments.AddComment("Review this", slide, new PointF(2.0f, 2.0f), DateTime.Now); // cm from the top-left
 ```
 
 ### Document properties
@@ -220,7 +220,7 @@ than from the summary below, which exists only so that this file is not silent a
 - Group shapes, animations, slide transitions, hyperlinks
 - Slide backgrounds, themes, and any API for the slide size (a new deck is 4:3 and stays 4:3)
 - Adding or cloning a layout — a new deck has one layout and no way to add another
-- Threaded comments; replies live in memory and the file carries the classic comment list
+- Modern comments; no `ppt/threadedComments/` part is written, and replies go on the classic comment list
 - Encryption and protection, VBA macros, digital signatures
 - Rendering and conversion of any kind — no PDF, HTML, SVG, image or text export
 

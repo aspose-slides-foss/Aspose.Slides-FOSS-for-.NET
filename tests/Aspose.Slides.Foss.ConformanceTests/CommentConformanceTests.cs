@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Xml.Linq;
 using Aspose.Slides.Foss.ConformanceTests.Harness;
 using Aspose.Slides.Foss.Drawing;
 using Aspose.Slides.Foss.Export;
@@ -5,15 +7,257 @@ using Aspose.Slides.Foss.Export;
 namespace Aspose.Slides.Foss.ConformanceTests;
 
 /// <summary>
-/// A comment reply is either written in a form a consumer understands or it is not written at all.
-/// An attribute the schema does not declare is the worst of the three outcomes: it makes the package
-/// invalid, no reader renders the thread, and the API reports success.
+/// Comments and their replies are written in the form PowerPoint reads, and survive an edit.
 /// </summary>
+/// <remarks>
+/// PowerPoint writes a reply as a classic <c>&lt;p:cm&gt;</c> like any other, and ties it to its
+/// parent with the <c>p15:threadingInfo</c> extension in the comment's <c>p:extLst</c>: the reply's
+/// holds <c>&lt;p15:parentCm authorId="…" idx="…"/&gt;</c> naming the parent by author and index,
+/// and the parent's is empty. Without <c>p15:parentCm</c> PowerPoint shows the reply as a second,
+/// unrelated comment. An attribute the schema does not declare is the worst outcome of all: it makes
+/// the package invalid, no reader renders the thread, and the API reports success.
+/// </remarks>
 public sealed class CommentConformanceTests : IDisposable
 {
+    /// <summary>The <c>p:ext/@uri</c> of the extension that carries <c>p15:threadingInfo</c>.</summary>
+    private const string ThreadingExtensionUri = "{C676402C-5697-4E1C-873F-D02D1690AC5C}";
+
+    private const string CommentsRelationshipType =
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments";
+
+    private static readonly DateTime When = new(2024, 1, 1, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly TestWorkspace _workspace = new();
 
     public void Dispose() => _workspace.Dispose();
+
+    [Fact]
+    public void AReplyNamesItsParentTheWayPowerPointDoes()
+    {
+        var path = WriteDeckWithAReply("comment-reply-threaded.pptx");
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var parent = CommentWithText(package, part, "Please check this");
+        var reply = CommentWithText(package, part, "Checked");
+
+        var parentInfo = ThreadingInfo(package, part, parent);
+        Assert.True(!parentInfo.HasElements,
+            $"The parent's p15:threadingInfo names a parent of its own: {parentInfo}");
+
+        var replyInfo = ThreadingInfo(package, part, reply);
+        var parentCm = replyInfo.Elements(Ns.P15 + "parentCm").ToList();
+        Assert.True(parentCm.Count == 1,
+            $"The reply's p15:threadingInfo carries {parentCm.Count} p15:parentCm element(s), expected 1." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+        Assert.True((string?)parentCm[0].Attribute("authorId") == (string?)parent.Attribute("authorId") &&
+                    (string?)parentCm[0].Attribute("idx") == (string?)parent.Attribute("idx"),
+            $"The reply names {parentCm[0]}, but its parent is authorId=\"{(string?)parent.Attribute("authorId")}\" " +
+            $"idx=\"{(string?)parent.Attribute("idx")}\".{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+
+        foreach (var info in new[] { parentInfo, replyInfo })
+        {
+            Assert.True(int.TryParse((string?)info.Attribute("timeZoneBias"), NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+                $"p15:threadingInfo has no integer timeZoneBias, which PowerPoint writes on every one: {info}");
+        }
+
+        PackageAssert.ChildrenInSchemaOrder(reply, Ns.P + "pos", Ns.P + "text", Ns.P + "extLst");
+        Assert.DoesNotContain(package.PartNames, name => name.StartsWith("ppt/threadedComments/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AReplyByAnotherAuthorNamesItsParentByAuthorAndIndex()
+    {
+        var path = _workspace.PathFor("comment-reply-two-authors.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var alice = presentation.CommentAuthors.AddAuthor("Alice", "A");
+            var bob = presentation.CommentAuthors.AddAuthor("Bob", "B");
+            var slide = presentation.Slides[0];
+            var parent = alice.Comments.AddComment("Parent", slide, new PointF(1, 1), When);
+            bob.Comments.AddComment("Unrelated", slide, new PointF(1, 2), When);
+            var reply = bob.Comments.AddComment("Reply", slide, new PointF(1, 3), When);
+            reply.ParentComment = parent;
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var parentElement = CommentWithText(package, part, "Parent");
+        var replyElement = CommentWithText(package, part, "Reply");
+        Assert.NotEqual((string?)parentElement.Attribute("authorId"), (string?)replyElement.Attribute("authorId"));
+
+        var parentCm = ThreadingInfo(package, part, replyElement).Element(Ns.P15 + "parentCm");
+        Assert.True(parentCm is not null &&
+                    (string?)parentCm.Attribute("authorId") == (string?)parentElement.Attribute("authorId") &&
+                    (string?)parentCm.Attribute("idx") == (string?)parentElement.Attribute("idx"),
+            $"Bob's reply must name Alice's comment by her author id and its index." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+        Assert.Null(ThreadingInfoOrNull(CommentWithText(package, part, "Unrelated"))?.Element(Ns.P15 + "parentCm"));
+    }
+
+    [Fact]
+    public void AReplyWhoseParentIsClearedIsWrittenAsATopLevelComment()
+    {
+        var path = _workspace.PathFor("comment-reply-cleared.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var author = presentation.CommentAuthors.AddAuthor("Reviewer", "RV");
+            var parent = author.Comments.AddComment("Please check this", presentation.Slides[0], new PointF(10, 10), When);
+            var reply = author.Comments.AddComment("Checked", presentation.Slides[0], new PointF(20, 20), When);
+            reply.ParentComment = parent;
+            reply.ParentComment = null;
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        Assert.True(PackageAssert.Select(package, part, "//p15:parentCm").Count == 0,
+            $"A reply whose parent was cleared still names one.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
+
+    [Fact]
+    public void RemovingACommentRemovesItsRepliesByEveryAuthorFromTheFile()
+    {
+        var path = _workspace.PathFor("comment-parent-removed.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var alice = presentation.CommentAuthors.AddAuthor("Alice", "A");
+            var bob = presentation.CommentAuthors.AddAuthor("Bob", "B");
+            var slide = presentation.Slides[0];
+            var parent = alice.Comments.AddComment("Parent", slide, new PointF(1, 1), When);
+            alice.Comments.AddComment("Kept", slide, new PointF(1, 2), When);
+            alice.Comments.AddComment("Reply by Alice", slide, new PointF(1, 3), When).ParentComment = parent;
+            bob.Comments.AddComment("Reply by Bob", slide, new PointF(1, 4), When).ParentComment = parent;
+            parent.Remove();
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var texts = PackageAssert.Select(package, part, "/p:cmLst/p:cm/p:text").Select(t => t.Value).ToList();
+        Assert.True(texts.SequenceEqual(["Kept"]),
+            $"Removing a comment must remove it and every reply to it; the file holds: {string.Join(", ", texts)}." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
+
+    [Fact]
+    public void ACommentRemovedWithoutItsRepliesLeavesNoReplyNamingIt()
+    {
+        var path = _workspace.PathFor("comment-parent-removed-at.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var author = presentation.CommentAuthors.AddAuthor("Reviewer", "RV");
+            var parent = author.Comments.AddComment("Parent", presentation.Slides[0], new PointF(1, 1), When);
+            author.Comments.AddComment("Reply", presentation.Slides[0], new PointF(1, 2), When).ParentComment = parent;
+            author.Comments.RemoveAt(0);
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var reply = CommentWithText(package, part, "Reply");
+        Assert.True(ThreadingInfoOrNull(reply)?.Element(Ns.P15 + "parentCm") is null,
+            $"The reply names a parent that is no longer in the file.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
+
+    [Fact]
+    public void AReplyPowerPointWroteReadsBackWithItsParent()
+    {
+        using var presentation = new Presentation(TestFixtures.PowerPointCommentReply);
+
+        var comments = presentation.CommentAuthors[0].Comments.ToArray();
+        var parent = comments.Single(c => c.Text == "Parent comment");
+        var reply = comments.Single(c => c.Text == "Reply to parent");
+
+        Assert.Null(parent.ParentComment);
+        Assert.True(reply.ParentComment?.Text == "Parent comment",
+            $"PowerPoint shows 'Reply to parent' as a reply to 'Parent comment'; its ParentComment reads " +
+            $"{(reply.ParentComment is null ? "null" : $"'{reply.ParentComment.Text}'")}.");
+    }
+
+    [Fact]
+    public void AReplyPowerPointWroteByAnotherAuthorReadsBackWithItsParent()
+    {
+        using var presentation = new Presentation(TestFixtures.PowerPointCommentReplyTwoAuthors);
+
+        var bob = presentation.CommentAuthors.ToArray().Single(a => a.Name == "Bob Ref");
+        var reply = bob.Comments.ToArray().Single();
+
+        Assert.True(reply.ParentComment?.Text == "Parent comment" && reply.ParentComment.Author.Name == "Alice Ref",
+            $"PowerPoint shows Bob's comment as a reply to Alice's; its ParentComment reads " +
+            $"{(reply.ParentComment is null ? "null" : $"'{reply.ParentComment.Text}' by '{reply.ParentComment.Author.Name}'")}.");
+    }
+
+    [Fact]
+    public void ACommentThreadPowerPointWroteSurvivesALoadAndSaveUnchanged()
+    {
+        var path = _workspace.PathFor("comment-powerpoint-thread-resaved.pptx");
+
+        using (var presentation = new Presentation(TestFixtures.PowerPointCommentReply))
+        {
+            // Reading the comments is what loads them into memory, and so into the next save.
+            foreach (var comment in presentation.CommentAuthors[0].Comments.ToArray())
+            {
+                _ = comment.Position;
+                _ = comment.ParentComment;
+            }
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var original = PptxPackage.Open(TestFixtures.PowerPointCommentReply);
+        using var saved = PptxPackage.Open(path);
+        foreach (var (originalPart, savedPart) in new[]
+                 {
+                     (CommentsPartOfSlide(original, 0), CommentsPartOfSlide(saved, 0)),
+                     ("ppt/commentAuthors.xml", "ppt/commentAuthors.xml"),
+                 })
+        {
+            Assert.True(XNode.DeepEquals(original.Xml(originalPart).Root, saved.Xml(savedPart).Root),
+                $"{savedPart} changed on a load and save that edited nothing." +
+                $"{Environment.NewLine}{PackageAssert.Describe(original, originalPart)}" +
+                $"{Environment.NewLine}{PackageAssert.Describe(saved, savedPart)}");
+        }
+    }
+
+    [Fact]
+    public void AReplyAddedToAnOpenedDeckNamesThePowerPointComment()
+    {
+        var path = _workspace.PathFor("comment-powerpoint-thread-extended.pptx");
+
+        using (var presentation = new Presentation(TestFixtures.PowerPointCommentReply))
+        {
+            var author = presentation.CommentAuthors[0];
+            var parent = author.Comments.ToArray().Single(c => c.Text == "Parent comment");
+            var reply = author.Comments.AddComment("Second reply", presentation.Slides[0], new PointF(1, 1), When);
+            reply.ParentComment = parent;
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var added = CommentWithText(package, part, "Second reply");
+        var parentCm = ThreadingInfo(package, part, added).Element(Ns.P15 + "parentCm");
+        Assert.True(parentCm is not null && (string?)parentCm.Attribute("authorId") == "1" && (string?)parentCm.Attribute("idx") == "1",
+            $"The new reply must name PowerPoint's comment, authorId=\"1\" idx=\"1\".{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+
+        // The parent's own extension is PowerPoint's, and is kept as PowerPoint wrote it.
+        var parentExtensions = CommentWithText(package, part, "Parent comment")
+            .Elements(Ns.P + "extLst").Elements(Ns.P + "ext").ToList();
+        Assert.True(parentExtensions.Count == 1 &&
+                    (string?)parentExtensions[0].Element(Ns.P15 + "threadingInfo")?.Attribute("timeZoneBias") == "-240" &&
+                    !parentExtensions[0].Element(Ns.P15 + "threadingInfo")!.HasElements,
+            $"The parent's threading extension was not kept as PowerPoint wrote it.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+
+        var first = CommentWithText(package, part, "Reply to parent");
+        var firstParent = ThreadingInfo(package, part, first).Element(Ns.P15 + "parentCm");
+        Assert.True(firstParent is not null && (string?)firstParent.Attribute("idx") == "1",
+            $"PowerPoint's own reply lost its parent.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
 
     [Fact]
     public void ReplyingToACommentWritesNoAttributeTheSchemaDoesNotDeclare()
@@ -40,7 +284,7 @@ public sealed class CommentConformanceTests : IDisposable
 
         Assert.True(undeclared.Count == 0,
             $"The comments part carries {undeclared.Count} 'parentCmId' attribute(s), which CT_Comment does not " +
-            $"declare. Threading is expressed by a threadedComments part, not by an attribute on <p:cm>." +
+            $"declare. Threading is expressed by the p15:threadingInfo extension, not by an attribute on <p:cm>." +
             $"{Environment.NewLine}{string.Join(Environment.NewLine, undeclared)}");
     }
 
@@ -207,4 +451,50 @@ public sealed class CommentConformanceTests : IDisposable
 
         return path;
     }
+
+    /// <summary>
+    /// Returns the comments part of the slide at <paramref name="slideIndex"/> in slide-list order,
+    /// found the way a reader finds it: through the slide's relationships.
+    /// </summary>
+    internal static string CommentsPartOfSlide(PptxPackage package, int slideIndex)
+    {
+        const string presentationPart = "ppt/presentation.xml";
+        var slideIds = PackageAssert.Select(package, presentationPart, "/p:presentation/p:sldIdLst/p:sldId");
+        Assert.True(slideIndex < slideIds.Count, $"The deck has {slideIds.Count} slide(s); slide {slideIndex} was asked for.");
+
+        var relationshipId = (string?)slideIds[slideIndex].Attribute(Ns.R + "id");
+        var slidePart = PptxPackage.ResolveTarget(presentationPart,
+            package.Relationships(presentationPart).Single(r => r.Id == relationshipId).Target);
+
+        var comments = package.Relationships(slidePart).Where(r => r.Type == CommentsRelationshipType).ToList();
+        Assert.True(comments.Count == 1,
+            $"{slidePart} has {comments.Count} comments relationship(s), expected 1." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, PptxPackage.RelationshipsPartNameFor(slidePart))}");
+        return PptxPackage.ResolveTarget(slidePart, comments[0].Target);
+    }
+
+    private static XElement CommentWithText(PptxPackage package, string part, string text)
+    {
+        var matches = PackageAssert.Select(package, part, "/p:cmLst/p:cm")
+            .Where(cm => cm.Element(Ns.P + "text")?.Value == text)
+            .ToList();
+        Assert.True(matches.Count == 1,
+            $"Expected one comment reading '{text}', found {matches.Count}.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+        return matches[0];
+    }
+
+    private static XElement ThreadingInfo(PptxPackage package, string part, XElement comment)
+    {
+        var info = ThreadingInfoOrNull(comment);
+        Assert.True(info is not null,
+            $"The comment '{comment.Element(Ns.P + "text")?.Value}' has no p15:threadingInfo in a " +
+            $"p:ext with uri {ThreadingExtensionUri}.{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+        return info!;
+    }
+
+    private static XElement? ThreadingInfoOrNull(XElement comment) =>
+        comment.Elements(Ns.P + "extLst").Elements(Ns.P + "ext")
+            .Where(ext => (string?)ext.Attribute("uri") == ThreadingExtensionUri)
+            .Elements(Ns.P15 + "threadingInfo")
+            .SingleOrDefault();
 }

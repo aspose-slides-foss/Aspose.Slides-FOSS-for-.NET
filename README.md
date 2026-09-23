@@ -288,8 +288,11 @@ presentation.Save("notes-comments.pptx", SaveFormat.Pptx);
 ```
 
 Writes `ppt/notesSlides/notesSlide1.xml` with its `ppt/notesMasters/notesMaster1.xml`, and the
-classic comment pair `ppt/commentAuthors.xml` + `ppt/comments/comment1.xml`. It does **not** write
-the modern `ppt/threadedComments/` part — see [What it cannot do](#what-it-cannot-do).
+classic comment pair `ppt/commentAuthors.xml` + `ppt/comments/comment1.xml`. A comment's position is
+in centimetres from the top-left corner of the slide. A reply — a comment whose `ParentComment` is
+set — is written on the same classic list, linked to its parent by the `p15:threadingInfo`
+extension. It does **not** write the modern `ppt/threadedComments/` part — see
+[What it cannot do](#what-it-cannot-do).
 
 ### Sections
 
@@ -362,7 +365,8 @@ inside the file that came out.
 - **Pictures** — embed from a byte array or a stream, deduplicated by content.
 - **Notes** — a notes slide per slide, written with the notes master it requires, plus footer text,
   footer visibility and slide-number visibility on the notes slide.
-- **Comments** — authors, comments with position and timestamp, on the classic comment list.
+- **Comments** — authors, comments with position and timestamp, and replies, on the classic comment
+  list.
 - **Document properties** — core, extended and custom; `docProps/core.xml`, `docProps/app.xml` and
   `docProps/custom.xml` are all written.
 - **Unknown parts** — parts the library does not model are carried through a load and a save
@@ -389,7 +393,7 @@ not contain today.
 | Themes | no `IPresentation.MasterTheme` |
 | Slide size | no `IPresentation.SlideSize` — a new deck is 4:3 and cannot be changed |
 | Adding or cloning a layout | `ILayoutSlideCollection` declares an indexer, `GetByType` and two collection views — nothing that adds or clones. A new deck has exactly one layout and its `LayoutType` is `Custom`, so `GetByType` answers only for `Custom` and returns `null` for every other value. A Title or Title-and-Content layout can only come from a deck you opened |
-| Threaded comments | replies are held in memory; no `ppt/threadedComments/` part is written |
+| Modern comments | no `ppt/threadedComments/` part is written; replies are written on the classic comment list |
 | Encryption and protection | no `IPresentation.Protect` |
 | Rendering and conversion | no PDF, HTML, SVG, image or text export of any kind |
 | VBA macros, digital signatures | not modelled |

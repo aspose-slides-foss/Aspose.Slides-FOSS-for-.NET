@@ -29,11 +29,22 @@ internal sealed class CommentsPart
             .ToList();
     }
 
-    internal CommentData? FindCommentByIdxAll(int idx)
+    /// <summary>
+    /// Finds a comment by its author and index. An index is counted per author, so two authors'
+    /// comments on one slide can share it.
+    /// </summary>
+    internal CommentData? FindComment(int authorId, int idx)
     {
-        var elem = _root.Elements(PNs + "cm")
-            .FirstOrDefault(e => int.Parse(e.Attribute("idx")?.Value ?? "-1") == idx);
-        return elem is not null ? new CommentData(elem) : null;
+        return GetComments().FirstOrDefault(cd => cd.AuthorId == authorId && cd.Idx == idx);
+    }
+
+    /// <summary>
+    /// Returns the comments in this part that reply to the given comment.
+    /// </summary>
+    internal List<CommentData> GetReplies(CommentData parent)
+    {
+        var parentRef = (parent.AuthorId, parent.Idx);
+        return GetComments().Where(cd => cd.ParentRef == parentRef).ToList();
     }
 
     internal void RemoveCommentElem(XElement elem)
@@ -108,27 +119,22 @@ internal sealed class CommentsPart
     }
 
     /// <summary>
-    /// The attribute this class uses in memory to remember which comment a reply answers.
-    /// </summary>
-    /// <remarks>
-    /// CT_Comment declares <c>authorId</c>, <c>dt</c> and <c>idx</c> and nothing else, so this
-    /// attribute makes the part schema-invalid and no consumer renders a thread from it. Threading
-    /// in PowerPoint is a separate <c>ppt/threadedComments/</c> part, which this library does not
-    /// write. The marker is therefore stripped on the way out: <see cref="Comment.ParentComment"/>
-    /// answers from memory, and the file carries flat comments, which is what it really has.
-    /// </remarks>
-    internal const string ParentMarkerAttribute = "parentCmId";
-
-    /// <summary>
     /// Flushes the comments XML back to the OPC package at the given part name.
     /// </summary>
+    /// <remarks>
+    /// A reply names its parent by author and index. A reply whose parent is no longer in the part —
+    /// removed on its own, or with its author — is written as a top-level comment rather than as a
+    /// reference to a comment the file does not have.
+    /// </remarks>
     internal void Flush(OpcPackage package, string partName)
     {
         var serialized = new XElement(_root);
-        foreach (var marker in serialized.DescendantsAndSelf()
-                     .Attributes(ParentMarkerAttribute).ToList())
+        var comments = serialized.Elements(PNs + "cm").Select(e => new CommentData(e)).ToList();
+        var present = comments.Select(cd => (cd.AuthorId, cd.Idx)).ToHashSet();
+        foreach (var cd in comments)
         {
-            marker.Remove();
+            if (cd.ParentRef is { } parent && !present.Contains(parent))
+                cd.ParentRef = null;
         }
 
         var doc = new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), serialized);
@@ -139,14 +145,14 @@ internal sealed class CommentsPart
 
     private static XElement CreateCommentElement(int authorId, int idx, string text, float posX, float posY, string dtStr)
     {
-        const int cmToEmu = 360000;
+        // posX and posY are centimetres; p:pos is in PowerPoint's unit, not EMU (see CommentData).
         return new XElement(PNs + "cm",
             new XAttribute("authorId", authorId),
             new XAttribute("idx", idx),
             new XAttribute("dt", dtStr),
             new XElement(PNs + "pos",
-                new XAttribute("x", (int)Math.Round(posX * cmToEmu)),
-                new XAttribute("y", (int)Math.Round(posY * cmToEmu))),
+                new XAttribute("x", CommentData.ToPositionUnits(posX)),
+                new XAttribute("y", CommentData.ToPositionUnits(posY))),
             new XElement(PNs + "text", text));
     }
 }

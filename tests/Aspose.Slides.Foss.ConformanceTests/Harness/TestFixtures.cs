@@ -38,6 +38,23 @@ internal static class TestFixtures
     /// </summary>
     internal static string PowerPointSectionsWithIdGap => PathTo("PowerPointSectionsWithIdGap.pptx");
 
+    /// <summary>
+    /// A one-slide deck authored in PowerPoint with one comment and one reply to it, both by
+    /// <c>Alice Ref</c>: <c>Parent comment</c> at 10 pt from the slide's top-left corner and
+    /// <c>Reply to parent</c> below it. The comments are PowerPoint's own classic ones: each
+    /// <c>&lt;p:cm&gt;</c> carries a <c>p15:threadingInfo</c> extension, the reply's names its parent
+    /// with <c>p15:parentCm</c>, and <c>p:pos</c> is in PowerPoint's unit — <c>x="80" y="80"</c>
+    /// for 10 pt.
+    /// </summary>
+    internal static string PowerPointCommentReply => PathTo("PowerPointCommentReply.pptx");
+
+    /// <summary>
+    /// The same thread as <see cref="PowerPointCommentReply"/>, with the reply written by a second
+    /// author, <c>Bob Ref</c>. Comment indices are counted per author, so both comments have
+    /// <c>idx="1"</c> and only the author tells the parent from the reply.
+    /// </summary>
+    internal static string PowerPointCommentReplyTwoAuthors => PathTo("PowerPointCommentReplyTwoAuthors.pptx");
+
     private static string PathTo(string fileName)
     {
         var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_data", fileName);

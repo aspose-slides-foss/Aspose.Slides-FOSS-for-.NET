@@ -10,6 +10,15 @@ public sealed class CommentTests
 {
     private static readonly XNamespace PNs = "http://schemas.openxmlformats.org/presentationml/2006/main";
 
+    private static readonly XNamespace P15Ns = "http://schemas.microsoft.com/office/powerpoint/2012/main";
+
+    /// <summary>PowerPoint's comment-position unit, an eighth of a point, per centimetre.</summary>
+    private const double UnitsPerCm = 576 / 2.54;
+
+    /// <summary>
+    /// Builds a <c>&lt;p:cm&gt;</c> as PowerPoint writes it: the position in eighths of a point and,
+    /// for a reply, a <c>p15:threadingInfo</c> naming the parent by author and index.
+    /// </summary>
     private static XElement MakeCommentElem(int authorId, int idx, string text,
         float posX = 0f, float posY = 0f, string? dt = null, int? parentCmId = null)
     {
@@ -20,14 +29,23 @@ public sealed class CommentTests
         if (dt is not null)
             cm.Add(new XAttribute("dt", dt));
 
-        if (parentCmId is not null)
-            cm.Add(new XAttribute("parentCmId", parentCmId.Value));
-
         cm.Add(new XElement(PNs + "pos",
-            new XAttribute("x", (int)Math.Round(posX * 360000)),
-            new XAttribute("y", (int)Math.Round(posY * 360000))));
+            new XAttribute("x", (int)Math.Round(posX * UnitsPerCm)),
+            new XAttribute("y", (int)Math.Round(posY * UnitsPerCm))));
 
         cm.Add(new XElement(PNs + "text", text));
+
+        if (parentCmId is not null)
+        {
+            cm.Add(new XElement(PNs + "extLst",
+                new XElement(PNs + "ext",
+                    new XAttribute("uri", "{C676402C-5697-4E1C-873F-D02D1690AC5C}"),
+                    new XElement(P15Ns + "threadingInfo",
+                        new XAttribute("timeZoneBias", 0),
+                        new XElement(P15Ns + "parentCm",
+                            new XAttribute("authorId", authorId),
+                            new XAttribute("idx", parentCmId.Value))))));
+        }
 
         return cm;
     }
@@ -229,6 +247,70 @@ public sealed class CommentTests
         child.ParentComment = null;
 
         child.ParentComment.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParentComment_IsFoundByAuthorAndIndex()
+    {
+        // Indices are counted per author, so Alice's and Bob's first comments are both idx 1.
+        var commentsRoot = new XElement(PNs + "cmLst");
+        var authorsRoot = new XElement(PNs + "cmAuthorLst",
+            MakeAuthorElem(0, "Alice", "A"), MakeAuthorElem(1, "Bob", "B"));
+
+        var bobsElem = MakeCommentElem(1, 1, "Bob's comment", 1f, 1f);
+        var alicesElem = MakeCommentElem(0, 1, "Alice's comment", 1f, 1f);
+        var replyElem = MakeCommentElem(1, 2, "Reply", 1f, 1f);
+        commentsRoot.Add(bobsElem, alicesElem, replyElem);
+
+        var commentsPart = new CommentsPart(commentsRoot);
+        var authorsPart = new CommentAuthorsPart(authorsRoot);
+        var slide = new SlideStub();
+        var alice = new CommentAuthorImpl(new AuthorData(authorsRoot.Elements(PNs + "cmAuthor").First()));
+        var bob = new CommentAuthorImpl(new AuthorData(authorsRoot.Elements(PNs + "cmAuthor").Last()));
+
+        var parent = new Comment();
+        parent.InitInternal(new CommentData(alicesElem), commentsPart, authorsPart, slide, alice);
+        var reply = new Comment();
+        reply.InitInternal(new CommentData(replyElem), commentsPart, authorsPart, slide, bob);
+
+        reply.ParentComment = parent;
+
+        reply.ParentComment!.Text.Should().Be("Alice's comment");
+        reply.ParentComment!.Author.Name.Should().Be("Alice");
+    }
+
+    [Fact]
+    public void ParentComment_OnAnotherSlide_IsRefused()
+    {
+        var authorsRoot = new XElement(PNs + "cmAuthorLst", MakeAuthorElem(0, "Alice", "A"));
+        var authorsPart = new CommentAuthorsPart(authorsRoot);
+        var author = new CommentAuthorImpl(new AuthorData(authorsRoot.Elements(PNs + "cmAuthor").First()));
+
+        var firstSlideElem = MakeCommentElem(0, 1, "On slide 1");
+        var secondSlideElem = MakeCommentElem(0, 2, "On slide 2");
+        var firstSlidePart = new CommentsPart(new XElement(PNs + "cmLst", firstSlideElem));
+        var secondSlidePart = new CommentsPart(new XElement(PNs + "cmLst", secondSlideElem));
+
+        var parent = new Comment();
+        parent.InitInternal(new CommentData(firstSlideElem), firstSlidePart, authorsPart, new SlideStub(), author);
+        var reply = new Comment();
+        reply.InitInternal(new CommentData(secondSlideElem), secondSlidePart, authorsPart, new SlideStub(), author);
+
+        var act = () => reply.ParentComment = parent;
+
+        act.Should().Throw<ArgumentException>();
+        reply.ParentComment.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParentComment_Itself_IsRefused()
+    {
+        var (comment, _) = CreateComment("Note", authorId: 0, idx: 1);
+
+        var act = () => comment.ParentComment = comment;
+
+        act.Should().Throw<ArgumentException>();
+        comment.ParentComment.Should().BeNull();
     }
 
     [Fact]
