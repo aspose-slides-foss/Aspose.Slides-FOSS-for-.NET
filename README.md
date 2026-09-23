@@ -282,7 +282,7 @@ INotesSlide notes = slide.NotesSlideManager.AddNotesSlide();
 notes.NotesTextFrame.Text = "Open with the revenue figures.";
 
 ICommentAuthor author = presentation.CommentAuthors.AddAuthor("Jane Smith", "JS");
-author.Comments.AddComment("Check these numbers.", slide, new PointF(2.0f, 2.0f), DateTime.UtcNow);
+author.Comments.AddComment("Check these numbers.", slide, new PointF(2.0f, 2.0f), DateTime.Now);
 
 presentation.Save("notes-comments.pptx", SaveFormat.Pptx);
 ```

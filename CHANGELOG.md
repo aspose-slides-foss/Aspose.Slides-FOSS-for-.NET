@@ -25,12 +25,16 @@ uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editi
 - **Comment positions saved by earlier versions read back far too large.** Earlier versions wrote a
   comment's `p:pos` in EMU. It is now read in PowerPoint's unit, so a comment saved by an earlier
   version of this library reads back from `IComment.Position` 1587.5 times further from the corner
-  along each axis than it was given; setting `Position` again writes it where it belongs. A comment
-  written by PowerPoint now reads back where PowerPoint placed it. See *Comments are placed on the
-  slide* under Fixed.
-- **`IComment.ParentComment` refuses a parent it cannot write.** Setting it to the comment itself or
-  to a comment on another slide raises `ArgumentException`; both used to be accepted. An `IComment`
-  this library did not create raises `ArgumentException` instead of `InvalidCastException`.
+  along each axis than it was given; setting `Position` to the intended value writes it where it
+  belongs. A comment written by PowerPoint now reads back where PowerPoint placed it. See *Comments
+  are placed on the slide* under Fixed.
+- **`IComment.ParentComment` refuses a parent it cannot write.** Setting it to the comment itself,
+  to one of its own replies, to a comment on another slide or in another presentation, or to a
+  removed comment raises `ArgumentException`; all used to be accepted. An `IComment` this library
+  did not create raises `ArgumentException` instead of `InvalidCastException`.
+- **`IComment.Remove()` removes replies to replies.** It removes the comment and every reply under
+  it, at any depth; it used to remove direct replies only and keep their replies as top-level
+  comments.
 
 ### Fixed
 
@@ -46,11 +50,11 @@ uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editi
   `p15:threadingInfo` extension PowerPoint writes, whose `p15:parentCm` names the parent by author
   and index, and the parent carries an empty one. A reply in a file PowerPoint wrote now reads back
   with its parent, including a reply by another author, whose index can equal the parent's. A reply
-  whose parent is removed on its own is saved as a top-level comment. No `ppt/threadedComments/`
-  part is written.
+  whose parent is removed on its own becomes a top-level comment at once, so a comment added later
+  under a reused author id and index is never taken for its parent. No `ppt/threadedComments/` part
+  is written.
 - **Removing a comment removes the replies of every author.** `IComment.Remove()` removed only the
   replies written by the comment's own author.
-
 - **Removing the first slide of a section no longer moves the section before it.** With sections
   Intro (A) and Body (B, C), removing B wrote Intro with no slides and Body with A and C. The section
   now starts from its next slide, which gives Intro (A) and Body (C) — what PowerPoint saves for the

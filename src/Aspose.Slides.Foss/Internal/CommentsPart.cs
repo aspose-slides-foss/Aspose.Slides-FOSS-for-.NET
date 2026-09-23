@@ -39,6 +39,18 @@ internal sealed class CommentsPart
     }
 
     /// <summary>
+    /// Returns whether the comment is still in this part, that is, has not been removed.
+    /// </summary>
+    internal bool Contains(CommentData cd) => ReferenceEquals(cd.Elem.Parent, _root);
+
+    /// <summary>
+    /// Returns the comment the given one replies to, or <c>null</c> if it is top-level or its
+    /// parent is not in this part.
+    /// </summary>
+    internal CommentData? FindParent(CommentData cd) =>
+        cd.ParentRef is { } parentRef ? FindComment(parentRef.AuthorId, parentRef.Idx) : null;
+
+    /// <summary>
     /// Returns the comments in this part that reply to the given comment.
     /// </summary>
     internal List<CommentData> GetReplies(CommentData parent)
@@ -47,9 +59,60 @@ internal sealed class CommentsPart
         return GetComments().Where(cd => cd.ParentRef == parentRef).ToList();
     }
 
-    internal void RemoveCommentElem(XElement elem)
+    /// <summary>
+    /// Returns every reply under the given comment, at any depth, not including the comment itself.
+    /// </summary>
+    internal List<CommentData> GetDescendants(CommentData root)
     {
-        elem.Remove();
+        var seen = new HashSet<XElement> { root.Elem };
+        var result = new List<CommentData>();
+        var pending = new Queue<CommentData>();
+        pending.Enqueue(root);
+        while (pending.Count > 0)
+        {
+            foreach (var reply in GetReplies(pending.Dequeue()))
+            {
+                if (!seen.Add(reply.Elem))
+                    continue;
+                result.Add(reply);
+                pending.Enqueue(reply);
+            }
+        }
+        return result;
+    }
+
+    internal void RemoveCommentElem(XElement elem) => RemoveCommentElems([elem]);
+
+    /// <summary>
+    /// Removes the given comment elements, then detaches every reply left naming a comment that is
+    /// no longer here.
+    /// </summary>
+    internal void RemoveCommentElems(IEnumerable<XElement> elems)
+    {
+        foreach (var elem in elems.ToList())
+            elem.Remove();
+        DetachOrphanedReplies();
+    }
+
+    /// <summary>
+    /// Makes every reply whose parent is not in this part a top-level comment.
+    /// </summary>
+    /// <remarks>
+    /// A reply names its parent by author id and index only. Author ids are reused — a new author
+    /// takes the highest id plus one, and so the id of a removed author — and a new author's indices
+    /// start again from 1, so a reference left naming a removed comment would later name an
+    /// unrelated one. It is therefore dropped as soon as the comment is gone, and when a part is
+    /// loaded, rather than when the part is saved.
+    /// </remarks>
+    internal void DetachOrphanedReplies()
+    {
+        var comments = GetComments();
+        var present = comments.Select(cd => (cd.AuthorId, cd.Idx)).ToHashSet();
+        foreach (var cd in comments)
+        {
+            if (cd.ParentRef is { } parent && !present.Contains(parent))
+                cd.ParentRef = null;
+        }
     }
 
     /// <summary>
@@ -81,11 +144,8 @@ internal sealed class CommentsPart
     /// </summary>
     internal void RemoveCommentsByAuthor(int authorId)
     {
-        var toRemove = _root.Elements(PNs + "cm")
-            .Where(e => int.Parse(e.Attribute("authorId")?.Value ?? "-1") == authorId)
-            .ToList();
-        foreach (var elem in toRemove)
-            elem.Remove();
+        RemoveCommentElems(_root.Elements(PNs + "cm")
+            .Where(e => int.Parse(e.Attribute("authorId")?.Value ?? "-1") == authorId));
     }
 
     /// <summary>
@@ -109,7 +169,12 @@ internal sealed class CommentsPart
 
         using var stream = new System.IO.MemoryStream(data);
         var doc = XDocument.Load(stream);
-        return doc.Root is not null ? new CommentsPart(doc.Root) : null;
+        if (doc.Root is null)
+            return null;
+
+        var part = new CommentsPart(doc.Root);
+        part.DetachOrphanedReplies();
+        return part;
     }
 
     internal void Save()
@@ -124,7 +189,8 @@ internal sealed class CommentsPart
     /// <remarks>
     /// A reply names its parent by author and index. A reply whose parent is no longer in the part —
     /// removed on its own, or with its author — is written as a top-level comment rather than as a
-    /// reference to a comment the file does not have.
+    /// reference to a comment the file does not have. <see cref="DetachOrphanedReplies"/> already
+    /// does this on every removal; it is repeated here on the copy that is written.
     /// </remarks>
     internal void Flush(OpcPackage package, string partName)
     {

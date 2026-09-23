@@ -45,16 +45,20 @@ public interface IComment
     /// <c>p15:threadingInfo</c> extension whose <c>p15:parentCm</c> names the parent by author and
     /// index, and the parent carries an empty <c>p15:threadingInfo</c>. No
     /// <c>ppt/threadedComments/</c> part is written. A reply and its parent must be on the same
-    /// slide. A reply whose parent is removed on its own is saved as a top-level comment;
-    /// <see cref="Remove"/> removes a comment together with its replies.
+    /// slide. A reply whose parent is removed on its own — through
+    /// <see cref="ICommentCollection.RemoveAt"/>, <see cref="ICommentCollection.Clear"/> or with its
+    /// author — becomes a top-level comment at once; <see cref="Remove"/> removes a comment together
+    /// with its replies. A removed comment has no parent.
     /// </remarks>
     /// <exception cref="ArgumentException">
-    /// The value is this comment, a comment on another slide, or not a comment of this library.
+    /// The value is this comment, one of its replies at any depth, a comment on another slide, a
+    /// removed comment, or not a comment of this presentation.
     /// </exception>
     IComment? ParentComment { get; set; }
 
     /// <summary>
-    /// Removes comment and all its replies from the parent collection.
+    /// Removes the comment and all its replies, at any depth and by any author.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The comment has already been removed.</exception>
     void Remove();
 }

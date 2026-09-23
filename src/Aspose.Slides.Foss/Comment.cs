@@ -67,11 +67,11 @@ public sealed class Comment : IComment
     {
         get
         {
-            var parentRef = _data.ParentRef;
-            if (parentRef is null)
+            // A removed comment is in no thread; its stale reference could name a comment added since.
+            if (!_commentsPart.Contains(_data))
                 return null;
 
-            var cd = _commentsPart.FindComment(parentRef.Value.AuthorId, parentRef.Value.Idx);
+            var cd = _commentsPart.FindParent(_data);
             if (cd is null)
                 return null;
 
@@ -98,7 +98,7 @@ public sealed class Comment : IComment
                 return;
             }
 
-            if (value is not Comment other)
+            if (value is not Comment other || !ReferenceEquals(other._authorsPart, _authorsPart))
                 throw new ArgumentException("The parent must be a comment of this presentation.", nameof(value));
             if (ReferenceEquals(other._data.Elem, _data.Elem))
                 throw new ArgumentException("A comment cannot reply to itself.", nameof(value));
@@ -106,6 +106,16 @@ public sealed class Comment : IComment
             // comment it answers must be on the same slide.
             if (!ReferenceEquals(other._commentsPart, _commentsPart))
                 throw new ArgumentException("A reply must be on the same slide as the comment it answers.", nameof(value));
+            if (!_commentsPart.Contains(other._data))
+                throw new ArgumentException("The parent has been removed.", nameof(value));
+
+            // Refuse a cycle: the new parent must not be this comment's own reply, at any depth.
+            var seen = new HashSet<System.Xml.Linq.XElement>();
+            for (var ancestor = other._data; ancestor is not null && seen.Add(ancestor.Elem); ancestor = _commentsPart.FindParent(ancestor))
+            {
+                if (ReferenceEquals(ancestor.Elem, _data.Elem))
+                    throw new ArgumentException("A comment cannot reply to one of its own replies.", nameof(value));
+            }
 
             other._data.EnsureThreadingInfo();
             _data.ParentRef = (other._data.AuthorId, other._data.Idx);
@@ -115,12 +125,16 @@ public sealed class Comment : IComment
     /// <inheritdoc/>
     public void Remove()
     {
-        // Direct replies, by any author: each names this comment by its author and index.
-        foreach (var reply in _commentsPart.GetReplies(_data))
-            _commentsPart.RemoveCommentElem(reply.Elem);
+        // Its author and index may name another comment by now; searching for its replies would
+        // remove that comment's.
+        if (!_commentsPart.Contains(_data))
+            throw new InvalidOperationException("The comment has already been removed.");
 
-        // Remove this comment
-        _commentsPart.RemoveCommentElem(_data.Elem);
+        // This comment and every reply under it, by any author and at any depth: each names its
+        // parent by author and index. The thread is found before anything is removed, because a
+        // removal detaches the replies left naming a removed comment.
+        var thread = _commentsPart.GetDescendants(_data).Select(cd => cd.Elem).Prepend(_data.Elem);
+        _commentsPart.RemoveCommentElems(thread);
 
         // Persist changes
         _commentsPart.Save();

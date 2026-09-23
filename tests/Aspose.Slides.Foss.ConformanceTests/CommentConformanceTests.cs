@@ -166,6 +166,122 @@ public sealed class CommentConformanceTests : IDisposable
     }
 
     [Fact]
+    public void RemovingACommentRemovesRepliesToItsRepliesFromTheFile()
+    {
+        var path = _workspace.PathFor("comment-thread-removed.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var author = presentation.CommentAuthors.AddAuthor("Reviewer", "RV");
+            var slide = presentation.Slides[0];
+            var parent = author.Comments.AddComment("Parent", slide, new PointF(1, 1), When);
+            var reply = author.Comments.AddComment("Reply", slide, new PointF(1, 2), When);
+            reply.ParentComment = parent;
+            author.Comments.AddComment("Reply to the reply", slide, new PointF(1, 3), When).ParentComment = reply;
+            author.Comments.AddComment("Kept", slide, new PointF(1, 4), When);
+            parent.Remove();
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var texts = PackageAssert.Select(package, part, "/p:cmLst/p:cm/p:text").Select(t => t.Value).ToList();
+        Assert.True(texts.SequenceEqual(["Kept"]),
+            $"Removing a comment must remove every reply under it; the file holds: {string.Join(", ", texts)}." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
+
+    /// <summary>
+    /// A new author takes the highest author id plus one, so removing the author with the highest id
+    /// hands that id to the next author added, whose first comment is idx 1 again. A reply that still
+    /// named a removed comment would then name the new author's comment.
+    /// </summary>
+    [Theory]
+    [InlineData("ICommentAuthor.Remove")]
+    [InlineData("ICommentAuthorCollection.RemoveAt")]
+    [InlineData("ICommentAuthorCollection.Remove")]
+    public void AReplyWhoseParentsAuthorIsRemovedIsNotAdoptedByTheNextAuthor(string removal)
+    {
+        var path = _workspace.PathFor($"comment-author-id-reused-{removal}.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var alice = presentation.CommentAuthors.AddAuthor("Alice", "A");
+            var bob = presentation.CommentAuthors.AddAuthor("Bob", "B");
+            var slide = presentation.Slides[0];
+            var parent = bob.Comments.AddComment("Bob's comment", slide, new PointF(1, 1), When);
+            var reply = alice.Comments.AddComment("Alice's reply", slide, new PointF(1, 2), When);
+            reply.ParentComment = parent;
+
+            switch (removal)
+            {
+                case "ICommentAuthor.Remove": bob.Remove(); break;
+                case "ICommentAuthorCollection.RemoveAt": presentation.CommentAuthors.RemoveAt(1); break;
+                default: presentation.CommentAuthors.Remove(bob); break;
+            }
+
+            var carol = presentation.CommentAuthors.AddAuthor("Carol", "C");
+            carol.Comments.AddComment("Carol's unrelated comment", slide, new PointF(1, 3), When);
+
+            var readBack = reply.ParentComment;
+            Assert.True(readBack is null,
+                $"Bob's comment was removed, and Alice's reply now reads as a reply to '{readBack?.Text}' by '{readBack?.Author.Name}'.");
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(package, 0);
+        var replyElement = CommentWithText(package, part, "Alice's reply");
+        Assert.True(ThreadingInfoOrNull(replyElement)?.Element(Ns.P15 + "parentCm") is null,
+            $"Bob's comment was removed, and Alice's reply still names a parent, which is now Carol's comment." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, part)}");
+    }
+
+    [Fact]
+    public void AReplyNamingACommentMissingFromAnOpenedDeckIsNotAdoptedByTheNextAuthor()
+    {
+        var source = _workspace.PathFor("comment-dangling-source.pptx");
+        var path = _workspace.PathFor("comment-dangling-resaved.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            var alice = presentation.CommentAuthors.AddAuthor("Alice", "A");
+            var bob = presentation.CommentAuthors.AddAuthor("Bob", "B");
+            var slide = presentation.Slides[0];
+            var parent = bob.Comments.AddComment("Bob's comment", slide, new PointF(1, 1), When);
+            alice.Comments.AddComment("Alice's reply", slide, new PointF(1, 2), When).ParentComment = parent;
+            presentation.Save(source, SaveFormat.Pptx);
+        }
+
+        // Take Bob and his comment out of the file, leaving Alice's reply naming authorId="1" idx="1".
+        string commentsPart;
+        using (var package = PptxPackage.Open(source))
+            commentsPart = CommentsPartOfSlide(package, 0);
+        RewriteXmlPart(source, commentsPart, root =>
+            root.Elements(Ns.P + "cm").Where(cm => (string?)cm.Attribute("authorId") == "1").Remove());
+        RewriteXmlPart(source, "ppt/commentAuthors.xml", root =>
+            root.Elements(Ns.P + "cmAuthor").Where(a => (string?)a.Attribute("id") == "1").Remove());
+
+        using (var presentation = new Presentation(source))
+        {
+            var carol = presentation.CommentAuthors.AddAuthor("Carol", "C");
+            carol.Comments.AddComment("Carol's unrelated comment", presentation.Slides[0], new PointF(1, 3), When);
+
+            var reply = presentation.CommentAuthors[0].Comments.ToArray().Single();
+            var readBack = reply.ParentComment;
+            Assert.True(readBack is null,
+                $"Alice's reply named a comment the file does not have, and now reads as a reply to '{readBack?.Text}' by '{readBack?.Author.Name}'.");
+            presentation.Save(path, SaveFormat.Pptx);
+        }
+
+        using var saved = PptxPackage.Open(path);
+        var part = CommentsPartOfSlide(saved, 0);
+        Assert.True(ThreadingInfoOrNull(CommentWithText(saved, part, "Alice's reply"))?.Element(Ns.P15 + "parentCm") is null,
+            $"Alice's reply named a comment the file does not have, and now names Carol's comment." +
+            $"{Environment.NewLine}{PackageAssert.Describe(saved, part)}");
+    }
+
+    [Fact]
     public void AReplyPowerPointWroteReadsBackWithItsParent()
     {
         using var presentation = new Presentation(TestFixtures.PowerPointCommentReply);
@@ -436,6 +552,23 @@ public sealed class CommentConformanceTests : IDisposable
         Assert.True(related,
             $"ppt/commentAuthors.xml is not related from ppt/presentation.xml." +
             $"{Environment.NewLine}{PackageAssert.Describe(package, "ppt/_rels/presentation.xml.rels")}");
+    }
+
+    /// <summary>
+    /// Replaces an XML part of the package at <paramref name="path"/> with an edited copy, to build a
+    /// file this library would not write itself.
+    /// </summary>
+    private static void RewriteXmlPart(string path, string partName, Action<XElement> edit)
+    {
+        using var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Update);
+        var entry = zip.GetEntry(partName)!;
+        XDocument doc;
+        using (var stream = entry.Open())
+            doc = XDocument.Load(stream);
+        edit(doc.Root!);
+        entry.Delete();
+        using (var stream = zip.CreateEntry(partName).Open())
+            doc.Save(stream);
     }
 
     private string WriteDeckWithAReply(string fileName)

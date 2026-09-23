@@ -313,6 +313,91 @@ public sealed class CommentTests
         comment.ParentComment.Should().BeNull();
     }
 
+    /// <summary>
+    /// Builds comments by one author on one slide, as <c>idx</c> 1, 2, … in the order given.
+    /// </summary>
+    private static (Comment[] Comments, CommentsPart Part) CreateThread(params string[] texts)
+    {
+        var commentsRoot = new XElement(PNs + "cmLst");
+        var authorsRoot = new XElement(PNs + "cmAuthorLst", MakeAuthorElem(0, "Alice", "A"));
+        var elems = texts.Select((text, i) => MakeCommentElem(0, i + 1, text, 1f, 1f)).ToArray();
+        commentsRoot.Add(elems);
+
+        var commentsPart = new CommentsPart(commentsRoot);
+        var authorsPart = new CommentAuthorsPart(authorsRoot);
+        var slide = new SlideStub();
+        var author = new CommentAuthorImpl(new AuthorData(authorsRoot.Elements(PNs + "cmAuthor").First()));
+
+        var comments = elems.Select(elem =>
+        {
+            var comment = new Comment();
+            comment.InitInternal(new CommentData(elem), commentsPart, authorsPart, slide, author);
+            return comment;
+        }).ToArray();
+        return (comments, commentsPart);
+    }
+
+    [Fact]
+    public void ParentComment_OneOfItsReplies_IsRefused()
+    {
+        var (c, _) = CreateThread("Top", "Reply", "Reply to the reply");
+        c[1].ParentComment = c[0];
+        c[2].ParentComment = c[1];
+
+        var direct = () => c[1].ParentComment = c[2];
+        var deeper = () => c[0].ParentComment = c[2];
+
+        direct.Should().Throw<ArgumentException>().WithMessage("*its own replies*");
+        deeper.Should().Throw<ArgumentException>().WithMessage("*its own replies*");
+        c[0].ParentComment.Should().BeNull();
+        c[1].ParentComment!.Text.Should().Be("Top");
+    }
+
+    [Fact]
+    public void ParentComment_FromAnotherPresentation_IsRefused()
+    {
+        var (parent, _) = CreateComment("Elsewhere", authorId: 0, idx: 1);
+        var (reply, _) = CreateComment("Here", authorId: 0, idx: 2);
+
+        var act = () => reply.ParentComment = parent;
+
+        act.Should().Throw<ArgumentException>().WithMessage("*of this presentation*");
+    }
+
+    [Fact]
+    public void ParentComment_ARemovedComment_IsRefused()
+    {
+        var (c, _) = CreateThread("Removed", "Reply");
+        c[0].Remove();
+
+        var act = () => c[1].ParentComment = c[0];
+
+        act.Should().Throw<ArgumentException>().WithMessage("*removed*");
+    }
+
+    [Fact]
+    public void ParentComment_OfARemovedReply_IsNull()
+    {
+        var (c, _) = CreateThread("Top", "Reply");
+        c[1].ParentComment = c[0];
+
+        c[0].Remove();
+
+        c[1].ParentComment.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParentComment_IsClearedAsSoonAsTheParentIsRemovedOnItsOwn()
+    {
+        var (c, part) = CreateThread("Top", "Reply");
+        c[1].ParentComment = c[0];
+
+        part.RemoveCommentElem(part.GetComments()[0].Elem);
+
+        c[1].ParentComment.Should().BeNull();
+        part.GetComments().Single().ParentRef.Should().BeNull();
+    }
+
     [Fact]
     public void Remove_RemovesCommentFromXml()
     {
@@ -365,6 +450,30 @@ public sealed class CommentTests
 
         commentsPart.GetComments().Should().HaveCount(1);
         commentsPart.GetComments()[0].Text.Should().Be("Other");
+    }
+
+    [Fact]
+    public void Remove_AlsoRemovesRepliesToReplies()
+    {
+        var (c, part) = CreateThread("Top", "Reply", "Reply to the reply", "Other");
+        c[1].ParentComment = c[0];
+        c[2].ParentComment = c[1];
+
+        c[0].Remove();
+
+        part.GetComments().Select(cd => cd.Text).Should().Equal("Other");
+    }
+
+    [Fact]
+    public void Remove_Twice_Throws()
+    {
+        var (c, part) = CreateThread("Top", "Other");
+        c[0].Remove();
+
+        var act = () => c[0].Remove();
+
+        act.Should().Throw<InvalidOperationException>();
+        part.GetComments().Select(cd => cd.Text).Should().Equal("Other");
     }
 
     [Fact]
