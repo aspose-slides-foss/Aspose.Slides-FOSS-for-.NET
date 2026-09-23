@@ -5,6 +5,47 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editions of the library.
 
+## [Unreleased]
+
+### Fixed
+
+- **Removing the first slide of a section no longer moves the section before it.** With sections
+  Intro (A) and Body (B, C), removing B wrote Intro with no slides and Body with A and C. The section
+  now starts from its next slide, which gives Intro (A) and Body (C) — what PowerPoint saves for the
+  same deletion. A section whose only slide is removed stays in the list, empty and in its place.
+- **Editing the slides of a deck opened from a file keeps its sections in step.** Adding, inserting,
+  cloning or removing a slide renumbers the slide ids that sections refer to, and on an opened deck
+  the section list was written back unchanged unless `Sections` itself had been edited: new slides
+  were in no section, and sections named slides that no longer existed. The section list is now
+  rewritten after any change to the slides, from the slides each section holds. An empty section read
+  from a file keeps its place instead of emptying every section after it.
+- **A subset save lists only the slides it writes in its sections.** `Save(…, int[] slides, …)` left
+  the dropped slides' ids in the section list. They are now removed; a section left with no slides is
+  kept, empty, as PowerPoint keeps it.
+- **A subset save's `docProps/app.xml` describes the file written.** It reported the slide count,
+  notes, hidden slides and slide titles of the whole deck — `<Slides>3</Slides>` in a one-slide file.
+- **Removing a slide removes its comments from the file.** When the comments had been read or added
+  in the same session, the removed slide's comments part — comment text included — and a
+  relationships part for the removed slide were written back on save, while the object model
+  reported no such comments.
+- **An author with no comments is written to a part the package declares.** `ppt/commentAuthors.xml`
+  was written without a content type or a relationship unless a comment was written too — which is
+  also what happened once the only commented slide was removed. Reading `CommentAuthors` on a deck
+  that has none no longer adds the part at all.
+
+### Changed
+
+- **`ISection.StartedFromSlide` follows removals.** When the slide a section starts from is removed,
+  it becomes the next slide of that section, or `null` if the section has no slides left. It
+  previously kept pointing at the removed slide.
+- **A section with no start slide sits in its place in the section order.** Such a section — empty
+  after removals, read empty from a file, or appended with `AppendEmptySection` at an index past the
+  last slide — now ends where the next section begins, so the sections after it keep their slides.
+  It was previously placed after the last slide, which left every later section empty.
+- **Reading sections no longer causes them to be rewritten.** Opening a deck and reading `Sections`
+  used to mark the section list as changed, so it was regenerated on save even when nothing had been
+  edited; it is now kept as the file had it until a section or the slide list changes.
+
 ## [26.9.0] - 2026-09-10
 
 This is the first entry. The library existed before it, but it wrote files that were wrong in ways
