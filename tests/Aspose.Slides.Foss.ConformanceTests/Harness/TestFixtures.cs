@@ -23,6 +23,21 @@ internal static class TestFixtures
     /// </summary>
     internal static string TableWithExtension => PathTo("TableWithExtension.pptx");
 
+    /// <summary>
+    /// A deck authored in PowerPoint with sections: three slides whose rectangles read
+    /// <c>Slide A</c>, <c>Slide B</c> and <c>Slide C</c>, in the sections <c>Intro</c> (A) and
+    /// <c>Body</c> (B, C). The section list is PowerPoint's own, so it is the shape a user's file
+    /// actually has.
+    /// </summary>
+    internal static string PowerPointSections => PathTo("PowerPointSections.pptx");
+
+    /// <summary>
+    /// What PowerPoint itself saved after deleting slide B from <see cref="PowerPointSections"/>:
+    /// slide ids 256 and 258, with <c>Intro</c> (A) and <c>Body</c> (C). PowerPoint does not
+    /// renumber the slides that remain, so the ids have a gap, as they do in most real decks.
+    /// </summary>
+    internal static string PowerPointSectionsWithIdGap => PathTo("PowerPointSectionsWithIdGap.pptx");
+
     private static string PathTo(string fileName)
     {
         var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_data", fileName);

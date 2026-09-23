@@ -274,7 +274,7 @@ public sealed partial class CommentCollection : ICommentCollection
         return comment;
     }
 
-    private static string DeriveCommentsPartName(string slidePartName)
+    internal static string DeriveCommentsPartName(string slidePartName)
     {
         var match = SlidePartPattern.Match(slidePartName);
         if (match.Success)

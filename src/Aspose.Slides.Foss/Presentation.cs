@@ -341,6 +341,7 @@ public sealed class Presentation : IPresentation, IDisposable
         FlushBeforeSave();
 
         var subset = BuildSubsetPackage(RequirePackage(), slides);
+        RefreshExtendedProperties(subset, slides);
 
         SaveFormatSupport.ApplyTo(subset, format);
         subset.SaveToStream(stream);
@@ -408,6 +409,29 @@ public sealed class Presentation : IPresentation, IDisposable
         var statistics = DeckStatistics.Collect(_opcPackage, hidden);
 
         ((DocumentProperties)DocumentProperties).RefreshDerivedProperties(statistics);
+    }
+
+    /// <summary>
+    /// Recomputes what <c>docProps/app.xml</c> reports in a subset package, which holds only the
+    /// slides at <paramref name="slides"/>.
+    /// </summary>
+    /// <remarks>
+    /// The subset is copied from a package already measured as the whole deck, so without this a
+    /// one-slide file declared the slide count, notes, hidden slides and slide titles of the deck it
+    /// was taken from.
+    /// </remarks>
+    private void RefreshExtendedProperties(OpcPackage subset, int[] slides)
+    {
+        int hidden = slides.Distinct().Count(index => index < SlidesInternal.Count && SlidesInternal[index].Hidden);
+        AppPropertiesPart.RefreshDerivedCountsIn(subset, DeckStatistics.Collect(subset, hidden));
+    }
+
+    /// <summary>
+    /// Forgets the comments held in memory for a slide that has been removed.
+    /// </summary>
+    internal void DiscardCommentsOf(string slidePartName)
+    {
+        _commentAuthorsPart?.CpCache.Remove(CommentCollection.DeriveCommentsPartName(slidePartName));
     }
 
     /// <summary>
@@ -644,13 +668,19 @@ public sealed class Presentation : IPresentation, IDisposable
         if (_commentAuthorsPart is null || _opcPackage is null)
             return;
 
+        // Reading the authors of a deck that has none is not a reason to add a part to it.
+        if (_commentAuthorsPart.CpCache.Count == 0 && _commentAuthorsPart.GetAuthors().Count == 0 &&
+            _opcPackage.GetPart("ppt/commentAuthors.xml") is null)
+        {
+            return;
+        }
+
         _commentAuthorsPart.Flush(_opcPackage);
 
-        // Only register OPC metadata if there are cached comment parts (i.e. comments were added).
-        if (_commentAuthorsPart.CpCache.Count == 0)
-            return;
-
-        // Register commentAuthors.xml content type + relationship from presentation.
+        // The authors part is written above whether or not any comment is, so it is declared
+        // whenever it is written. Declaring it only alongside comments left an author with no
+        // comment - or whose only comments were on a slide since removed - in a part with no
+        // content type that nothing refers to.
         OpcRegistration.AddContentTypeOverride(_opcPackage, "ppt/commentAuthors.xml",
             "application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml");
         OpcRegistration.EnsureRelationship(_opcPackage, "ppt/presentation.xml",

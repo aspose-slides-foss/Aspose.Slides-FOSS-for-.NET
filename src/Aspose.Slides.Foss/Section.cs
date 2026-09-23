@@ -15,10 +15,14 @@ public sealed class Section : ISection
     private readonly SectionCollection _owner;
     private string _name = string.Empty;
 
-    internal Section(SectionCollection owner, Guid? sectionId = null)
+    internal Section(SectionCollection owner, Guid? sectionId = null, string name = "")
     {
         _owner = owner;
         SectionId = sectionId ?? Guid.NewGuid();
+
+        // Set without marking the collection changed: a section read from a file already says
+        // what the file says, and only an edit should cause the section list to be rewritten.
+        _name = name;
     }
 
     /// <inheritdoc />

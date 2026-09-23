@@ -140,6 +140,58 @@ internal static class PackageAssert
     }
 
     /// <summary>
+    /// Asserts that every relationships part belongs to a part the package contains. A
+    /// <c>ppt/slides/_rels/slide2.xml.rels</c> with no <c>ppt/slides/slide2.xml</c> beside it is
+    /// the signature of a part that was deleted and then had its relationships written back.
+    /// </summary>
+    internal static void EveryRelationshipsPartBelongsToAPart(PptxPackage package)
+    {
+        var failures = package.PartNames
+            .Where(PptxPackage.IsRelationshipsPart)
+            .Select(name => (Rels: name, Owner: OwnerOfRelationshipsPart(name)))
+            .Where(pair => pair.Owner.Length > 0 && !package.Contains(pair.Owner))
+            .Select(pair => $"{pair.Rels} belongs to '{pair.Owner}', which is not in the package")
+            .ToList();
+
+        Assert.True(failures.Count == 0,
+            $"{failures.Count} relationships part(s) belong to a missing part:{Environment.NewLine}" +
+            string.Join(Environment.NewLine, failures));
+    }
+
+    /// <summary>
+    /// Asserts that the section list, when there is one, partitions the slide list: every
+    /// <c>&lt;p14:sldId&gt;</c> names a slide in <c>&lt;p:sldIdLst&gt;</c>, and reading the sections in
+    /// order gives every slide exactly once, in slide-list order.
+    /// <para>
+    /// A section names its slides by the numeric id of their <c>&lt;p:sldId&gt;</c>, so a section list
+    /// written against an older slide list names slides that are gone and leaves new ones out.
+    /// </para>
+    /// </summary>
+    internal static void SectionsPartitionTheSlideList(PptxPackage package)
+    {
+        const string presentation = "ppt/presentation.xml";
+
+        var slideIds = Select(package, presentation, "/p:presentation/p:sldIdLst/p:sldId")
+            .Select(e => (string?)e.Attribute("id") ?? string.Empty)
+            .ToList();
+
+        var sections = Select(package, presentation, "//p14:sectionLst/p14:section");
+        if (sections.Count == 0)
+            return;
+
+        var listed = sections
+            .SelectMany(section => section.Elements(Ns.P14 + "sldIdLst").Elements(Ns.P14 + "sldId"))
+            .Select(e => (string?)e.Attribute("id") ?? string.Empty)
+            .ToList();
+
+        Assert.True(listed.SequenceEqual(slideIds),
+            $"The sections do not partition the slide list." +
+            $"{Environment.NewLine}slide list:        [{string.Join(", ", slideIds)}]" +
+            $"{Environment.NewLine}sections, in order: [{string.Join(", ", listed)}]" +
+            $"{Environment.NewLine}{string.Join(Environment.NewLine, sections)}");
+    }
+
+    /// <summary>
     /// Asserts that every internal relationship in the package targets a part that exists.
     /// </summary>
     internal static void EveryInternalRelationshipTargetExists(PptxPackage package)

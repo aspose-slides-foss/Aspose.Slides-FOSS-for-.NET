@@ -167,6 +167,57 @@ public sealed class SectionCollection : ISectionCollection
     internal void MarkDirty() => _dirty = true;
 
     /// <summary>
+    /// Reads the section list against the slide list as it is now. The slide collection calls this
+    /// once it has loaded its slides, before anything can change them.
+    /// </summary>
+    /// <remarks>
+    /// A section in the file names its slides by <c>&lt;p:sldId&gt;</c> id, and every change to the
+    /// slide list rewrites those ids. Read after a change, the ids would name different slides, or
+    /// none; read before it, each section holds on to its slides and moves with them.
+    /// </remarks>
+    internal void BindToSlideList() => EnsureParsed();
+
+    /// <summary>
+    /// Keeps each section in place when <paramref name="slide"/> is about to be removed: a section
+    /// that starts from it starts from its next slide instead, or becomes empty when it has no other.
+    /// </summary>
+    /// <remarks>
+    /// Without this a section whose start slide is gone has nowhere to begin, and the slides of the
+    /// section in front of it were written into it. PowerPoint keeps the rest of the section, and an
+    /// emptied section stays where it was.
+    /// </remarks>
+    internal void SlideRemoving(ISlide slide)
+    {
+        EnsureParsed();
+
+        var moves = new List<(Section Section, ISlide? Start)>();
+        foreach (var section in _sections)
+        {
+            if (section is not Section concrete || !ReferenceEquals(concrete.StartedFromSlide, slide))
+                continue;
+
+            var members = SlidesOf(section);
+            var position = members.IndexOf(slide);
+            moves.Add((concrete, position >= 0 && position + 1 < members.Count ? members[position + 1] : null));
+        }
+
+        foreach (var (section, start) in moves)
+            section.StartedFromSlide = start;
+    }
+
+    /// <summary>
+    /// Records that the slide list changed. The section list names slides by <c>&lt;p:sldId&gt;</c>
+    /// id, and the slide collection renumbers those ids on every change, so the list in the file is
+    /// out of date as soon as there is one.
+    /// </summary>
+    internal void SlideListChanged()
+    {
+        EnsureParsed();
+        if (_sections.Count > 0)
+            MarkDirty();
+    }
+
+    /// <summary>
     /// Lists the slides belonging to <paramref name="section"/>: those from the slide it starts
     /// from up to the slide the next section starts from.
     /// </summary>
@@ -295,16 +346,16 @@ public sealed class SectionCollection : ISectionCollection
 
         foreach (var element in sectionLst.Elements(P14Ns + "section"))
         {
-            var firstId = element.Element(P14Ns + "sldIdLst")
+            // The section starts from the first of its slides that is in the slide list. An empty
+            // section has none, and is placed by Boundaries rather than given a slide it lacks.
+            var index = element.Element(P14Ns + "sldIdLst")
                 ?.Elements(P14Ns + "sldId")
-                .FirstOrDefault()
-                ?.Attribute("id")?.Value;
+                .Select(sldId => slideIds.IndexOf(sldId.Attribute("id")?.Value ?? string.Empty))
+                .FirstOrDefault(position => position >= 0, -1) ?? -1;
 
-            var index = firstId is null ? -1 : slideIds.IndexOf(firstId);
-
-            _sections.Add(new Section(this, ParseSectionId(element.Attribute("id")?.Value))
+            _sections.Add(new Section(this, ParseSectionId(element.Attribute("id")?.Value),
+                element.Attribute("name")?.Value ?? string.Empty)
             {
-                Name = element.Attribute("name")?.Value ?? string.Empty,
                 StartedFromSlide = index >= 0 && index < slides.Count ? slides[index] : null,
             });
         }
@@ -319,17 +370,26 @@ public sealed class SectionCollection : ISectionCollection
     /// caller error to raise on: slides can be reordered after the sections are made, so the same
     /// pair of sections can be out of order at one moment and in order at the next. The clamp keeps
     /// the written list monotone whatever the slide order happens to be.
+    /// <para>
+    /// A section with no start slide in the list is empty, and it sits where the next section that
+    /// has one begins, or at the end. Placing it at the end regardless made every section after it
+    /// empty too, and giving it the previous section's start moved that section's slides into it.
+    /// </para>
     /// </remarks>
     private List<int> Boundaries(List<ISlide> slides)
     {
+        var starts = _sections
+            .Select(section => section.StartedFromSlide is null ? -1 : slides.IndexOf(section.StartedFromSlide))
+            .ToList();
+
         var boundaries = new List<int>(_sections.Count);
         int previous = 0;
 
-        foreach (var section in _sections)
+        for (int i = 0; i < starts.Count; i++)
         {
-            var start = section.StartedFromSlide is null
-                ? slides.Count
-                : slides.IndexOf(section.StartedFromSlide);
+            var start = starts[i];
+            if (start < 0)
+                start = starts.Skip(i + 1).FirstOrDefault(next => next >= 0, slides.Count);
 
             if (start < previous)
                 start = previous;

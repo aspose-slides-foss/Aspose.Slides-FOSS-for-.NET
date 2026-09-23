@@ -100,6 +100,66 @@ public sealed class DocumentPropertiesConformanceTests : IDisposable
     }
 
     [Fact]
+    public void ASubsetSaveDescribesTheSlidesItWrote()
+    {
+        var path = _workspace.PathFor("app-properties-subset.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            foreach (var slide in presentation.Slides)
+                slide.NotesSlideManager.AddNotesSlide().NotesTextFrame.Text = $"Note {slide.SlideNumber}";
+            presentation.Slides[2].Hidden = true;
+            presentation.Save(path, [1], SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+
+        var slideCount = PackageAssert.Select(package, "ppt/presentation.xml", "//p:sldIdLst/p:sldId").Count;
+        var notesCount = package.PartNames.Count(name =>
+            name.StartsWith("ppt/notesSlides/notesSlide", StringComparison.Ordinal) && name.EndsWith(".xml", StringComparison.Ordinal));
+        Assert.Equal(1, slideCount);
+        Assert.Equal(1, notesCount);
+
+        var app = package.Xml("docProps/app.xml").Root!;
+        var declared = $"Slides={app.Element(Ns.Ep + "Slides")?.Value} Notes={app.Element(Ns.Ep + "Notes")?.Value} " +
+                       $"HiddenSlides={app.Element(Ns.Ep + "HiddenSlides")?.Value}";
+        var titles = app.Element(Ns.Ep + "HeadingPairs")?.Descendants()
+            .FirstOrDefault(e => e.Name.LocalName == "lpstr" && e.Value == "Slide Titles")
+            ?.Parent?.ElementsAfterSelf().FirstOrDefault()?.Value;
+
+        Assert.True(declared == "Slides=1 Notes=1 HiddenSlides=0" && titles == "1",
+            $"The file holds 1 slide, 1 notes slide and no hidden slide; docProps/app.xml declares {declared} " +
+            $"and {titles ?? "no"} slide title(s)." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, "docProps/app.xml")}");
+    }
+
+    [Fact]
+    public void ASubsetSaveCountsTheHiddenSlidesItWrote()
+    {
+        var path = _workspace.PathFor("app-properties-subset-hidden.pptx");
+
+        using (var presentation = new Presentation())
+        {
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Slides.AddEmptySlide(presentation.LayoutSlides[0]);
+            presentation.Slides[0].Hidden = true;
+            presentation.Slides[2].Hidden = true;
+            presentation.Save(path, [1, 2], SaveFormat.Pptx);
+        }
+
+        using var package = PptxPackage.Open(path);
+
+        var app = package.Xml("docProps/app.xml").Root!;
+        var declared = $"Slides={app.Element(Ns.Ep + "Slides")?.Value} HiddenSlides={app.Element(Ns.Ep + "HiddenSlides")?.Value}";
+
+        Assert.True(declared == "Slides=2 HiddenSlides=1",
+            $"The file holds 2 slides, 1 of them hidden; docProps/app.xml declares {declared}." +
+            $"{Environment.NewLine}{PackageAssert.Describe(package, "docProps/app.xml")}");
+    }
+
+    [Fact]
     public void ExtendedPropertiesAreUpdatedWhenSlidesAreRemoved()
     {
         var path = _workspace.PathFor("app-properties-after-removal.pptx");

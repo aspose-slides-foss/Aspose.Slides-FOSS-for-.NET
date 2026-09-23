@@ -26,6 +26,7 @@ internal static class PackageSlides
 
     private static readonly XNamespace PNs = "http://schemas.openxmlformats.org/presentationml/2006/main";
     private static readonly XNamespace RNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    private static readonly XNamespace P14Ns = "http://schemas.microsoft.com/office/powerpoint/2010/main";
 
     private const string PresentationPartName = "ppt/presentation.xml";
 
@@ -84,9 +85,9 @@ internal static class PackageSlides
     }
 
     /// <summary>
-    /// Removes a slide from a package: its <c>&lt;p:sldId&gt;</c> entry, the presentation
-    /// relationship that entry names, the part, the part's relationships, its content-type
-    /// <c>Override</c>, and any notes slide or comments part that only this slide reached.
+    /// Removes a slide from a package: its <c>&lt;p:sldId&gt;</c> entry and any section entry naming
+    /// it, the presentation relationship that entry names, the part, the part's relationships, its
+    /// content-type <c>Override</c>, and any notes slide or comments part that only this slide reached.
     /// </summary>
     /// <param name="package">The package to modify.</param>
     /// <param name="presentationPart">The presentation part of that package.</param>
@@ -139,15 +140,42 @@ internal static class PackageSlides
 
     private static void RemoveSlideIdEntry(PresentationPart presentationPart, string relId)
     {
-        var sldIdLst = presentationPart.Document.Root?.Element(PNs + "sldIdLst");
-        if (sldIdLst is null)
+        var root = presentationPart.Document.Root;
+        var sldIdLst = root?.Element(PNs + "sldIdLst");
+        if (root is null || sldIdLst is null)
             return;
 
         foreach (var sldId in sldIdLst.Elements(PNs + "sldId").ToList())
         {
-            if (string.Equals(sldId.Attribute(RNs + "id")?.Value, relId, StringComparison.Ordinal))
-                sldId.Remove();
+            if (!string.Equals(sldId.Attribute(RNs + "id")?.Value, relId, StringComparison.Ordinal))
+                continue;
+
+            sldId.Remove();
+            RemoveSectionEntries(root, sldId.Attribute("id")?.Value);
         }
+    }
+
+    /// <summary>
+    /// Removes a slide from every section that lists it.
+    /// </summary>
+    /// <remarks>
+    /// Sections name their slides by the <c>id</c> of the <c>&lt;p:sldId&gt;</c> entry rather than by
+    /// relationship, so removing the entry leaves the section naming a slide the package does not
+    /// have. The section itself stays, empty if this was its only slide, as PowerPoint leaves it.
+    /// </remarks>
+    private static void RemoveSectionEntries(XElement presentation, string? slideId)
+    {
+        if (slideId is null)
+            return;
+
+        presentation.Element(PNs + "extLst")
+            ?.Elements(PNs + "ext")
+            .Elements(P14Ns + "sectionLst")
+            .Elements(P14Ns + "section")
+            .Elements(P14Ns + "sldIdLst")
+            .Elements(P14Ns + "sldId")
+            .Where(entry => string.Equals(entry.Attribute("id")?.Value, slideId, StringComparison.Ordinal))
+            .Remove();
     }
 
     /// <summary>

@@ -167,6 +167,11 @@ public sealed class SlideCollection : ISlideCollection
     public void RemoveAt(int index)
     {
         var slide = Slides[index];
+
+        // A section that starts from this slide has to be told before the slide is gone, while
+        // the slides that follow it can still be found.
+        Sections?.SlideRemoving(slide);
+
         Slides.RemoveAt(index);
 
         // Dropping the slide from the in-memory list only rewrites <p:sldIdLst>. Everything else
@@ -174,7 +179,13 @@ public sealed class SlideCollection : ISlideCollection
         // relationship and the content-type Override - has to go with it, or the file keeps an
         // orphan part nothing can reach and a relationship nothing names.
         if (slide is Slide removed && _package is not null && _presentationPart is not null)
+        {
             PackageSlides.RemoveSlide(_package, _presentationPart, removed.PartName);
+
+            // Comments are written back from memory on save, so the removed slide's have to go from
+            // there too, or its comments part - text included - is written into the file again.
+            _presentation?.DiscardCommentsOf(removed.PartName);
+        }
 
         UpdateSlideNumbers();
         PersistSlideList();
@@ -589,7 +600,16 @@ public sealed class SlideCollection : ISlideCollection
 
             _presentation.SlidesInternal.Add(slide);
         }
+
+        // Sections name slides by the ids this collection is about to start renumbering. Resolve
+        // them now, while the ids are still the ones the file was written with.
+        Sections?.BindToSlideList();
     }
+
+    /// <summary>
+    /// The presentation's sections, which have to follow every change to the slide list.
+    /// </summary>
+    private SectionCollection? Sections => _presentation?.Sections as SectionCollection;
 
     private Slide CreateNewSlide(ILayoutSlide? layout)
     {
@@ -727,6 +747,10 @@ public sealed class SlideCollection : ISlideCollection
             lastPreceding.AddAfterSelf(sldIdLst);
         else
             root.AddFirst(sldIdLst);
+
+        // The ids were just renumbered, so a section list read from the file now names the wrong
+        // slides. It is rewritten on save from the slides each section holds.
+        Sections?.SlideListChanged();
 
         _presentationPart.Flush();
     }

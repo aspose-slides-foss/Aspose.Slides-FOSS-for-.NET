@@ -207,6 +207,28 @@ internal sealed class AppPropertiesPart
     }
 
     /// <summary>
+    /// Rewrites the derived counts in the <c>docProps/app.xml</c> of <paramref name="package"/> and
+    /// writes the part back, declared and related. Every other property in it is kept as it is.
+    /// </summary>
+    /// <remarks>
+    /// For a package other than the presentation's own — the copy a subset save writes — whose
+    /// statistics differ from the deck the presentation's properties describe.
+    /// </remarks>
+    internal static void RefreshDerivedCountsIn(OpcPackage package, DeckStatistics statistics)
+    {
+        var part = CreateFromPackage(package);
+        part.SetDerivedCounts(statistics);
+
+        using var ms = new MemoryStream();
+        part.Root.Save(ms);
+        package.SetPart(PartPath, ms.ToArray());
+
+        OpcRegistration.AddContentTypeOverride(package, PartPath, PartContentTypes.ExtendedProperties);
+        OpcRegistration.EnsureRelationship(package, string.Empty,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties", PartPath);
+    }
+
+    /// <summary>
     /// Writes the "Theme"/"Slide Titles" heading pairs that index the TitlesOfParts vector.
     /// </summary>
     private void SetHeadingPairs(DeckStatistics statistics)
