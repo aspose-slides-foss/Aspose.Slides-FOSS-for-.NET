@@ -7,6 +7,22 @@ uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editi
 
 ## [Unreleased]
 
+### Changed
+
+- **`ISection.StartedFromSlide` follows removals.** When the slide a section starts from is removed,
+  it becomes the next slide of that section, or `null` if the section has no slides left. It
+  previously kept pointing at the removed slide.
+- **A section with no start slide sits in its place in the section order.** Such a section — empty
+  after removals, read empty from a file, or appended with `AppendEmptySection` at an index past the
+  last slide — now ends where the next section begins, so the sections after it keep their slides.
+  It was previously placed after the last slide, which left every later section empty.
+- **Reading sections no longer causes them to be rewritten.** Opening a deck and reading `Sections`
+  used to mark the section list as changed, so it was regenerated on save even when nothing had been
+  edited; it is now kept as the file had it until a section or the slide list changes.
+- **`ISlide.Remove()` after the presentation is disposed raises `ObjectDisposedException`.** It now
+  goes through `Presentation.Slides`, which raises once the presentation is disposed. It previously
+  succeeded and changed only the in-memory slide list.
+
 ### Fixed
 
 - **Removing the first slide of a section no longer moves the section before it.** With sections
@@ -35,19 +51,6 @@ uses a CalVer version scheme — `YY.M.PATCH`, matching the other language editi
   was written without a content type or a relationship unless a comment was written too — which is
   also what happened once the only commented slide was removed. Reading `CommentAuthors` on a deck
   that has none no longer adds the part at all.
-
-### Changed
-
-- **`ISection.StartedFromSlide` follows removals.** When the slide a section starts from is removed,
-  it becomes the next slide of that section, or `null` if the section has no slides left. It
-  previously kept pointing at the removed slide.
-- **A section with no start slide sits in its place in the section order.** Such a section — empty
-  after removals, read empty from a file, or appended with `AppendEmptySection` at an index past the
-  last slide — now ends where the next section begins, so the sections after it keep their slides.
-  It was previously placed after the last slide, which left every later section empty.
-- **Reading sections no longer causes them to be rewritten.** Opening a deck and reading `Sections`
-  used to mark the section list as changed, so it was regenerated on save even when nothing had been
-  edited; it is now kept as the file had it until a section or the slide list changes.
 
 ## [26.9.0] - 2026-09-10
 
@@ -141,4 +144,5 @@ adding or cloning a layout, threaded comments, encryption, macros, digital signa
 of rendering or conversion.
 The README lists these in full, with the API member that is missing for each.
 
+[Unreleased]: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/compare/v26.9.0...HEAD
 [26.9.0]: https://github.com/aspose-slides-foss/Aspose.Slides-FOSS-for-.NET/releases/tag/v26.9.0

@@ -144,7 +144,7 @@ jobs:
           $floors = [ordered]@{
             'Aspose.Slides.Foss.Tests'            = 3908
             'Aspose.Slides.Foss.IntegrationTests' = 194
-            'Aspose.Slides.Foss.ConformanceTests' = 160
+            'Aspose.Slides.Foss.ConformanceTests' = 200
           }
           $problems = @()
           foreach ($suite in $floors.Keys) {

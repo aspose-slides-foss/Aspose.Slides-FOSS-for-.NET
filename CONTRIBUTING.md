@@ -68,7 +68,7 @@ Three suites run, and all three must be green:
 |---|---|---|
 | `tests/Aspose.Slides.Foss.Tests` | 3,908 | unit tests of the object model |
 | `tests/Aspose.Slides.Foss.IntegrationTests` | 194 | end-to-end use of the public API |
-| `tests/Aspose.Slides.Foss.ConformanceTests` | 160 | assertions against the produced `.pptx` package |
+| `tests/Aspose.Slides.Foss.ConformanceTests` | 200 | assertions against the produced `.pptx` package |
 
 Run one suite on its own with, for example:
 
@@ -96,7 +96,7 @@ that `Harness/` gives you five helpers:
 | `PackageAssert` | the rules a consumer applies — every `r:id`/`r:embed`/`r:link` resolves in that part's `.rels`, every part is content-typed, no `Override` names a missing part, no relationship targets a missing part, an element exists at an XPath with the attributes you name, children appear in schema-required order |
 | `SchemaValidation` | runs `OpenXmlValidator(FileFormatVersions.Office2019)` over the package and asserts zero errors |
 | `TestWorkspace` | a temp directory deleted with the test class, plus a 1×1 PNG |
-| `TestFixtures` | the decks to open, including a 46-part deck PowerPoint wrote that carries parts this library never writes — the only way to notice that a save dropped one |
+| `TestFixtures` | the decks to open, including a 46-part deck PowerPoint wrote that carries parts this library never writes — the only way to notice that a save dropped one — and two three-slide decks PowerPoint wrote with sections: one as authored, and one as PowerPoint saved it after deleting the middle slide, so its slide ids have a gap |
 
 The validator and the package assertions catch different things and neither subsumes the other. The
 validator knows the schema: invented element names, missing required attributes, wrong child order.
